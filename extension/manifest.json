@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Vocab CE",
+  "version": "0.1.0",
+  "description": "Highlight any text to get an instant English explanation tailored for Vietnamese learners.",
+  "action": {
+    "default_title": "Open Vocab Game"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8000/*"]
+}

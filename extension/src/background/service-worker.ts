@@ -1,0 +1,131 @@
+import {
+  DEFAULT_BACKEND_URL,
+  WORDBANK_STORAGE_KEY,
+  WORDBANK_SYNCED_AT_KEY,
+  type ExplainResult,
+  type Message,
+  type SaveResult,
+  type VoteResult,
+  type WordBankResponse,
+  type WordRead,
+} from '../lib/types'
+
+async function getBackendUrl(): Promise<string> {
+  const { backendUrl } = await chrome.storage.local.get('backendUrl')
+  return (backendUrl as string) || DEFAULT_BACKEND_URL
+}
+
+async function syncWordBank(): Promise<WordBankResponse> {
+  const backendUrl = await getBackendUrl()
+  try {
+    const res = await fetch(`${backendUrl}/api/words?limit=1000`)
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
+    }
+    const data = (await res.json()) as WordRead[]
+    const syncedAt = new Date().toISOString()
+    await chrome.storage.local.set({
+      [WORDBANK_STORAGE_KEY]: data,
+      [WORDBANK_SYNCED_AT_KEY]: syncedAt,
+    })
+    return { ok: true, data, syncedAt }
+  } catch (e) {
+    return { ok: false, error: `Network error: ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+function triggerSync(): void {
+  // Fire-and-forget; ignore errors so they don't disrupt the user-facing call.
+  syncWordBank().catch((e) => console.warn('[vocab-ce] background sync failed', e))
+}
+
+async function handleExplain(payload: { text: string; source_url?: string }): Promise<ExplainResult> {
+  const backendUrl = await getBackendUrl()
+  try {
+    const res = await fetch(`${backendUrl}/api/explain`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
+    }
+    const data = await res.json()
+    triggerSync()
+    return { ok: true, data }
+  } catch (e) {
+    return { ok: false, error: `Network error: ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+async function handleSaveKeywords(payload: {
+  source_sentence: string
+  source_url?: string
+  keywords: unknown[]
+}): Promise<SaveResult> {
+  const backendUrl = await getBackendUrl()
+  try {
+    const res = await fetch(`${backendUrl}/api/words/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
+    }
+    triggerSync()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: `Network error: ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+async function handleVote(payload: { wordId: string; direction: 'up' | 'down' }): Promise<VoteResult> {
+  const backendUrl = await getBackendUrl()
+  try {
+    const res = await fetch(`${backendUrl}/api/words/${payload.wordId}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction: payload.direction }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
+    }
+    triggerSync()
+    return { ok: true, data: await res.json() }
+  } catch (e) {
+    return { ok: false, error: `Network error: ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
+  if (msg.type === 'EXPLAIN') {
+    handleExplain(msg.payload).then(sendResponse)
+    return true
+  }
+  if (msg.type === 'SAVE_KEYWORDS') {
+    handleSaveKeywords(msg.payload).then(sendResponse)
+    return true
+  }
+  if (msg.type === 'VOTE') {
+    handleVote(msg.payload).then(sendResponse)
+    return true
+  }
+  if (msg.type === 'SYNC_WORDBANK') {
+    syncWordBank().then(sendResponse)
+    return true
+  }
+  if (msg.type === 'OPEN_GAME') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('game.html') }).then(() => sendResponse({ ok: true }))
+    return true
+  }
+  return false
+})
+
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('game.html') })
+})
