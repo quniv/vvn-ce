@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vdict-crawler
+  namespace: vocab
+spec:
+  # Weekly, Sunday at 02:00 UTC — picks up new words vdict.com adds over time.
+  # Run manually for the initial bulk crawl (see README or use a one-shot Job).
+  schedule: "0 2 * * 0"
+  concurrencyPolicy: Forbid       # never run two crawls in parallel
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 14400  # 4h hard timeout
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: crawler
+              image: <registry>/vdict-crawler:latest  # replace with your registry
+              imagePullPolicy: Always
+              env:
+                - name: CRAWLER_DB_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: vdict-crawler-secret
+                      key: db_url
+                # Tune these env vars to adjust crawl behaviour without rebuilding
+                - name: CRAWLER_CONCURRENCY
+                  value: "8"
+                - name: CRAWLER_DELAY_MS
+                  value: "100"
+                - name: CRAWLER_BATCH_SIZE
+                  value: "50"
+                - name: CRAWLER_NO_RAW_HTML
+                  value: "true"
+              resources:
+                requests:
+                  cpu: "200m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
