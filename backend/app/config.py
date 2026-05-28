@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     debug: bool = False
     cors_origins: list[str] = ["*"]
     cache_ttl_seconds: int = 60 * 60 * 24 * 30  # 30 days
+    use_llm_fallback: bool = False  # set USE_LLM_FALLBACK=true in .env to re-enable LLM
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 

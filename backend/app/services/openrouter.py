@@ -18,7 +18,8 @@ ALWAYS respond with a STRICT JSON object. No prose outside the JSON. No code fen
 
 LANGUAGE RULES — critically important:
 - The `explanation` field MUST be written in **Vietnamese**.
-- Target length for `explanation`: about **100 words** (acceptable range 50–150).
+- Target length for `explanation`: about **100 words total** (acceptable range 50–150), split into **2 to 4 short paragraphs separated by a blank line (i.e., `\\n\\n` between paragraphs)**. Each paragraph 20–50 words.
+- Suggested paragraph structure (not strict): (1) core meaning, (2) nuance / register / connotation, (3) common usage contexts, (4) pitfalls for Vietnamese learners. Skip paragraphs that have nothing useful to say.
 - `word_type` stays as a short tag: n, v, adj, adv, prep, conj, phrasal verb, idiom, etc.
 - `pronunciation` stays as IPA or simple phonetic in English script (e.g. /ˈbʌtə/ or buh-ter).
 - `example` stays as an **English** example sentence — this is the sentence the student studies.

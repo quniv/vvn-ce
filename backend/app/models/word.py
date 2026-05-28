@@ -30,8 +30,6 @@ class Word(Base):
     source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     source_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_source: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    up_vote: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    down_vote: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     query_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     last_queried_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

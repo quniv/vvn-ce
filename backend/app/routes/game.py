@@ -21,14 +21,15 @@ def _today_range() -> tuple[datetime, datetime]:
     return start, end
 
 
-@router.get("/game/today", response_model=GameTodayResponse)
+@router.get("/game/today", response_model=GameTodayResponse, deprecated=True)
 async def game_today(db: DbDep) -> GameTodayResponse:
+    """DEPRECATED: matching game disabled — see ADR 019 for Spaced Repetition design."""
     start, end = _today_range()
     result = await db.execute(
         select(Word)
         .where(Word.last_queried_at >= start)
         .where(Word.last_queried_at <= end)
-        .order_by((Word.up_vote - Word.down_vote).desc(), Word.last_queried_at.desc())
+        .order_by(Word.last_queried_at.desc())
     )
     rows = list(result.scalars().all())
     pairs = [
@@ -38,8 +39,9 @@ async def game_today(db: DbDep) -> GameTodayResponse:
     return GameTodayResponse(pairs=pairs)
 
 
-@router.post("/game/result", status_code=201)
+@router.post("/game/result", status_code=201, deprecated=True)
 async def game_result(req: GameResultRequest, db: DbDep) -> dict:
+    """DEPRECATED."""
     row = GameResult(
         total_words=req.total_words,
         correct=req.correct,

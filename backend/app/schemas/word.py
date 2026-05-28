@@ -37,9 +37,12 @@ class ExplainResponse(BaseModel):
     model_source: str | None = None
     up_vote: int = 0
     down_vote: int = 0
+    user_vote: Literal["up", "down"] | None = None  # current authenticated user's vote
     query_count: int = 1
     cached: bool = False    # True if served from Redis
     db_hit: bool = False    # True if served from Postgres (skipped LLM)
+    audio_url: str | None = None  # vdict audio: https://audio.vdict.com/1/{vdict_id}.mp3
+    vdict_examples: list[dict] = Field(default_factory=list)  # [{en, vi}] bilingual pairs
 
 
 class SaveKeywordsRequest(BaseModel):
@@ -61,13 +64,12 @@ class WordRead(BaseModel):
     source_url: str | None
     source_sentence: str | None
     model_source: str | None
-    up_vote: int
-    down_vote: int
+    up_vote: int = 0
+    down_vote: int = 0
+    user_vote: Literal["up", "down"] | None = None
     query_count: int
     last_queried_at: datetime
     created_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 class VoteRequest(BaseModel):
