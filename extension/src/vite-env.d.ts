@@ -1,7 +1,7 @@
 /// <reference types="svelte" />
 /// <reference types="vite/client" />
 
-declare module '*.svelte?inline' {
+declare module '*.css?inline' {
   const content: string
   export default content
 }

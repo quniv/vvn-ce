@@ -1,8 +1,8 @@
 import { mount, unmount } from 'svelte'
 import Popup from './popup/Popup.svelte'
-import popupCss from './popup/Popup.svelte?inline'
+import popupCss from './popup/Popup.css?inline'
 import LookupButton from './popup/LookupButton.svelte'
-import lookupCss from './popup/LookupButton.svelte?inline'
+import lookupCss from './popup/LookupButton.css?inline'
 import type { Message } from '../lib/types'
 
 type ShadowMount = {
@@ -12,6 +12,7 @@ type ShadowMount = {
 
 let lookupMount: ShadowMount | null = null
 let popupMount: ShadowMount | null = null
+let dragging = false
 
 /**
  * Mount a Svelte component inside a Shadow DOM host positioned at (x, y).
@@ -85,7 +86,7 @@ function showLookupButton(text: string, sourceUrl: string, x: number, y: number)
     {
       onLookup: () => {
         closeLookup()
-        showPopup(text, sourceUrl, x, y)
+        showPopup(text, sourceUrl)
       },
     },
     x,
@@ -105,20 +106,49 @@ function safeSendMessage(msg: Message): Promise<unknown> {
   return chrome.runtime.sendMessage(msg)
 }
 
-function showPopup(text: string, sourceUrl: string, x: number, y: number): void {
+function showPopup(text: string, sourceUrl: string): void {
   closePopup()
-  popupMount = mountInShadow(
-    Popup,
-    popupCss,
-    {
+
+  const POPUP_W = 380
+  const POPUP_H = 480
+  const x = window.scrollX + Math.max(0, (window.innerWidth - POPUP_W) / 2)
+  const y = window.scrollY + Math.max(0, (window.innerHeight - POPUP_H) / 2)
+
+  const host = document.createElement('div')
+  host.style.position = 'absolute'
+  host.style.left = `${x}px`
+  host.style.top = `${y}px`
+  host.style.zIndex = '2147483647'
+  host.style.pointerEvents = 'auto'
+  document.body.appendChild(host)
+
+  const shadow = host.attachShadow({ mode: 'closed' })
+  const styleEl = document.createElement('style')
+  styleEl.textContent = popupCss
+  shadow.appendChild(styleEl)
+  const mountPoint = document.createElement('div')
+  shadow.appendChild(mountPoint)
+
+  const app = mount(Popup, {
+    target: mountPoint,
+    props: {
       selectedText: text,
       sourceUrl,
       onClose: closePopup,
       sendMessage: safeSendMessage,
+      onDragStart: () => { dragging = true },
+      onDragEnd: () => { dragging = false },
+      onMove: (newX: number, newY: number) => {
+        host.style.left = `${newX}px`
+        host.style.top = `${newY}px`
+      },
+      getPosition: () => ({
+        x: parseInt(host.style.left, 10),
+        y: parseInt(host.style.top, 10),
+      }),
     },
-    x,
-    y,
-  )
+  })
+  popupMount = { host, app }
 }
 
 function getSelectionInfo(): { text: string; x: number; y: number } | null {
@@ -128,14 +158,34 @@ function getSelectionInfo(): { text: string; x: number; y: number } | null {
   if (!text) return null
   const range = selection.getRangeAt(0)
   const rect = range.getBoundingClientRect()
+
+  // Estimated button dimensions (🔍 Look up, font 13px, padding 6px 12px)
+  const BTN_W = 84
+  const BTN_H = 32
+  const GAP = 6
+
+  // Anchor: top-right of the selection (right-aligned, above)
+  let left = rect.right - BTN_W
+  let top = rect.top - BTN_H - GAP
+
+  // If button would clip above the viewport, show it below instead
+  if (top < 4) top = rect.bottom + GAP
+
+  // If button right edge would clip the viewport right, shift left
+  if (rect.right > window.innerWidth - 8) left = window.innerWidth - BTN_W - 8
+
+  // Never go off the left edge
+  if (left < 8) left = 8
+
   return {
     text,
-    x: window.scrollX + rect.left,
-    y: window.scrollY + rect.bottom + 8,
+    x: window.scrollX + left,
+    y: window.scrollY + top,
   }
 }
 
 document.addEventListener('mouseup', (e) => {
+  if (dragging) return
   // Ignore clicks inside our own UI
   if (isHostNode(lookupMount?.host ?? null, e.target)) return
   if (isHostNode(popupMount?.host ?? null, e.target)) return

@@ -1,0 +1,37 @@
+.lookup-btn {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: transform 0.1s ease, background 0.15s ease, opacity 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 1.2;
+  opacity: 0.5;
+}
+.lookup-btn:hover { transform: translateY(-1px); opacity: 1; }
+.lookup-btn:active { transform: translateY(0); }
+
+/* Dark theme (default) */
+.lookup-btn.theme-dark {
+  background: rgba(59, 130, 246, 0.95);
+  color: white;
+  border: 1px solid rgba(96, 165, 250, 0.8);
+}
+.lookup-btn.theme-dark:hover {
+  background: rgba(37, 99, 235, 0.98);
+}
+
+/* Light theme */
+.lookup-btn.theme-light {
+  background: rgba(59, 130, 246, 0.95);
+  color: white;
+  border: 1px solid rgba(37, 99, 235, 0.8);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+}
+.lookup-btn.theme-light:hover {
+  background: rgba(37, 99, 235, 0.98);
+}

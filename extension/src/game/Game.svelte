@@ -2,14 +2,14 @@
   import GameTab from './GameTab.svelte'
   import WordBank from './WordBank.svelte'
 
-  type Tab = 'game' | 'bank'
+  type Tab = 'practice' | 'bank'
 
-  let activeTab = $state<Tab>('game')
+  // Default tab is now Word Bank (game is disabled — Spaced Repetition coming, see ADR 019)
+  let activeTab = $state<Tab>('bank')
 
-  // Sync tab to URL hash so reload preserves selection
   if (typeof window !== 'undefined') {
     const initial = window.location.hash.replace('#', '') as Tab
-    if (initial === 'bank' || initial === 'game') activeTab = initial
+    if (initial === 'bank' || initial === 'practice') activeTab = initial
   }
 
   function setTab(t: Tab) {
@@ -20,19 +20,19 @@
 
 <main>
   <nav class="tabs">
-    <button class:active={activeTab === 'game'} onclick={() => setTab('game')}>
-      🎯 Game
-    </button>
     <button class:active={activeTab === 'bank'} onclick={() => setTab('bank')}>
       📚 Word Bank
+    </button>
+    <button class:active={activeTab === 'practice'} onclick={() => setTab('practice')}>
+      🧠 Practice
     </button>
   </nav>
 
   <div class="content">
-    {#if activeTab === 'game'}
-      <GameTab />
-    {:else}
+    {#if activeTab === 'bank'}
       <WordBank />
+    {:else}
+      <GameTab />
     {/if}
   </div>
 </main>

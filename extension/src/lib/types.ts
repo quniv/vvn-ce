@@ -27,9 +27,12 @@ export type ExplainResponse = {
   model_source?: string | null
   up_vote: number
   down_vote: number
+  user_vote?: 'up' | 'down' | null
   query_count?: number
   cached: boolean
   db_hit?: boolean
+  audio_url?: string | null
+  vdict_examples?: Array<{ en: string; vi: string }>
 }
 
 export type VoteDirection = 'up' | 'down'
@@ -49,6 +52,7 @@ export type WordRead = {
   model_source?: string | null
   up_vote: number
   down_vote: number
+  user_vote?: 'up' | 'down' | null
   query_count: number
   last_queried_at: string
   created_at: string

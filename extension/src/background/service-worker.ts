@@ -15,10 +15,36 @@ async function getBackendUrl(): Promise<string> {
   return (backendUrl as string) || DEFAULT_BACKEND_URL
 }
 
+/**
+ * Wraps chrome.identity.getAuthToken. Returns null instead of throwing —
+ * callers decide whether absence of a token is fatal (VOTE) or fine (listings).
+ */
+function getAccessToken(interactive: boolean): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      chrome.identity.getAuthToken({ interactive }, (token) => {
+        if (chrome.runtime.lastError || !token) {
+          resolve(null)
+          return
+        }
+        resolve(typeof token === 'string' ? token : (token as { token?: string }).token ?? null)
+      })
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+async function authHeaders(interactive: boolean): Promise<Record<string, string>> {
+  const token = await getAccessToken(interactive)
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function syncWordBank(): Promise<WordBankResponse> {
   const backendUrl = await getBackendUrl()
+  const auth = await authHeaders(false)
   try {
-    const res = await fetch(`${backendUrl}/api/words?limit=1000`)
+    const res = await fetch(`${backendUrl}/api/words?limit=1000`, { headers: auth })
     if (!res.ok) {
       const text = await res.text()
       return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
@@ -36,16 +62,16 @@ async function syncWordBank(): Promise<WordBankResponse> {
 }
 
 function triggerSync(): void {
-  // Fire-and-forget; ignore errors so they don't disrupt the user-facing call.
   syncWordBank().catch((e) => console.warn('[vocab-ce] background sync failed', e))
 }
 
 async function handleExplain(payload: { text: string; source_url?: string }): Promise<ExplainResult> {
   const backendUrl = await getBackendUrl()
+  const auth = await authHeaders(false) // non-interactive — listings still work without sign-in
   try {
     const res = await fetch(`${backendUrl}/api/explain`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
@@ -66,10 +92,11 @@ async function handleSaveKeywords(payload: {
   keywords: unknown[]
 }): Promise<SaveResult> {
   const backendUrl = await getBackendUrl()
+  const auth = await authHeaders(false)
   try {
     const res = await fetch(`${backendUrl}/api/words/save`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
@@ -85,10 +112,18 @@ async function handleSaveKeywords(payload: {
 
 async function handleVote(payload: { wordId: string; direction: 'up' | 'down' }): Promise<VoteResult> {
   const backendUrl = await getBackendUrl()
+  // Vote requires sign-in — interactive flow
+  const token = await getAccessToken(true)
+  if (!token) {
+    return { ok: false, error: 'Sign-in required (cancelled or no Google account in Chrome)' }
+  }
   try {
     const res = await fetch(`${backendUrl}/api/words/${payload.wordId}/vote`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ direction: payload.direction }),
     })
     if (!res.ok) {

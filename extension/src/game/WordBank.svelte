@@ -282,10 +282,9 @@
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.2px;
   }
-  .badge.difficulty { text-transform: capitalize; letter-spacing: 0; }
+  .badge.difficulty { text-transform: capitalize; }
   .badge.difficulty-beginner { background: #14532d; color: #bbf7d0; }
   .badge.difficulty-intermediate { background: #713f12; color: #fde68a; }
   .badge.difficulty-advanced { background: #7f1d1d; color: #fecaca; }
