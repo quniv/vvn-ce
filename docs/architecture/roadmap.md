@@ -179,7 +179,85 @@
 
 ---
 
-## Phase 6 – K8s Migration (Future — when cluster is ready)
+## Phase 6 — Paragraphed explanations + Google-login voting + disable game (today)
+
+**Goal:** make Vietnamese explanations easier to scan via paragraphs; require Google sign-in to vote (per-user vote attribution); disable the matching game and prepare the ground for Spaced Repetition.
+
+**Backend**
+- [ ] Alembic migration: DROP `words.up_vote`, `words.down_vote`; CREATE TABLE `word_votes(id, word_id FK ON DELETE CASCADE, user_email, direction CHECK in('up','down'), voted_at)` with `UNIQUE (word_id, user_email)` and `ix_word_votes_word_id`
+- [ ] `app/models/vote.py` (new) — `WordVote` SQLAlchemy class; update `app/models/__init__.py`
+- [ ] `app/models/word.py` — drop `up_vote`/`down_vote` columns; add `votes` relationship
+- [ ] `app/services/google_auth.py` (new) — `verify_token_get_email(token)` → email; Redis cache `auth:{sha256(token)}` TTL 5min; calls `https://openidconnect.googleapis.com/v1/userinfo`
+- [ ] `app/routes/auth_deps.py` (new) — `current_user_email` (optional) and `require_user_email` (raises 401)
+- [ ] `app/schemas/word.py` — `ExplainResponse`/`WordRead` add `user_vote: Literal['up','down'] | None`
+- [ ] `app/routes/words.py` — refactor listings to compute up/down/user_vote via aggregate subqueries; `POST /api/words/{id}/vote` becomes a Reddit-style toggle behind `require_user_email`
+- [ ] `app/services/openrouter.py` — SYSTEM_PROMPT instructs 2–4 paragraphs separated by `\n\n` (still ~100 words total)
+- [ ] Game routes left in place but marked deprecated in docstring
+
+**Frontend**
+- [ ] `extension/manifest.json` — add `identity` permission + `oauth2` block with PLACEHOLDER client_id (user creates real one in Google Cloud Console)
+- [ ] `extension/src/background/service-worker.ts` — `getAccessToken(interactive)` helper wrapping `chrome.identity.getAuthToken`; attach `Authorization: Bearer <token>` to EXPLAIN/SAVE/SYNC (non-interactive) and VOTE (interactive)
+- [ ] `extension/src/lib/types.ts` — add `user_vote?: 'up' | 'down' | null` to `KeywordItem`, `ExplainResponse`, `WordRead`
+- [ ] `extension/src/content/popup/Popup.svelte` — vote button `.active` uses `result.user_vote === 'up'`; on 401 show inline "Sign in to vote" retry button; word_type badge in normal case (no uppercase)
+- [ ] `extension/src/content/popup/Popup.css` — `white-space: pre-line` on `.explanation` and `.kw-detail-body`; remove `text-transform: uppercase` from `.badge` (keep difficulty badges capitalized)
+- [ ] `extension/src/game/GameTab.svelte` — replace matching game with "🧠 Spaced Repetition coming soon" placeholder linking to ADR 019
+- [ ] `extension/src/game/Game.svelte` — default tab is now `bank`, not `game`
+
+**Effort:** ~4–6 hours (including OAuth setup time)
+
+**Risk:** OAuth client ID setup is manual — the extension will not be able to vote until the user creates the client in Google Cloud Console and pastes the ID into `manifest.json`. The plan tolerates this: backend hard-fails with a clear 401 message; the popup shows the inline sign-in retry button.
+
+---
+
+## Phase 7 — Spaced Repetition Practice (next, see ADR 019)
+
+**Goal:** replace the disabled matching game with a daily SM-2 spaced-repetition review queue. Out of scope for Phase 6 but fully designed in [ADR 019](adr/019-spaced-repetition-design.md).
+
+- [ ] Alembic migration: add `interval_days INT`, `ease_factor NUMERIC(3,2)`, `due_at TIMESTAMPTZ`, `last_reviewed_at TIMESTAMPTZ`, `review_count INT` to `words`
+- [ ] `POST /api/words/{id}/review { rating: 'again' | 'hard' | 'good' | 'easy' }` — applies SM-2 update
+- [ ] `GET /api/words/due` — words where `due_at <= now()`, ordered by oldest due
+- [ ] `extension/src/game/PracticeTab.svelte` — flashcard UI with the four rating buttons
+- [ ] Re-enable the second tab in `Game.svelte` — "Practice" instead of "Game"
+
+---
+
+## Phase 8a — Crawl vdict.com (today)
+
+**Goal:** seed a `vdict_words` table with ~80k English-Vietnamese entries from vdict.com. No `/api/explain` or UI changes — just populate the data so a future CR can consume it.
+
+- [ ] Alembic migration: `vdict_words` table with `vdict_id PK`, `text`, `ipa`, `word_type`, `meanings JSONB`, `friendly JSONB`, `examples JSONB`, `raw_html`, `crawled_at`; index on `LOWER(text)`
+- [ ] `app/models/vdict_word.py` (new) — SQLAlchemy model
+- [ ] `uv add selectolax` for HTML parsing (httpx already a dep)
+- [ ] `app/jobs/crawl_vdict.py` (new) — sitemap-driven, async, rate-limited (3 concurrent, 250ms delay), resumable, UPSERT
+- [ ] `app/routes/dev.py` (new) — `GET /api/dev/vdict/{text}` gated by `settings.debug`
+- [ ] Verify with tiny crawl (first 50 URLs from sitemap); spot-check 10 entries; iterate parser
+- [ ] Run full crawl (~2 hours, leave overnight)
+
+**Effort:** ~3–4 hours coding + 2 hours full crawl
+
+**Risk:** vdict's HTML changes break the parser. Mitigation: `raw_html` is stored, so parser fixes can re-extract without re-fetching.
+
+---
+
+## Phase 8b — Wire vdict_words into /api/explain (next)
+
+**Goal:** make vdict_words the primary lookup; LLM becomes fallback. Decide card schema (drop synonyms/collocations/difficulty? keep + hide-when-empty?) AFTER seeing real vdict data.
+
+- [ ] Decide: extend `WordRead` schema to expose `meanings[]` / `friendly[]` from vdict
+- [ ] Decide: LLM fallback prompt — vdict-style or keep rich-style
+- [ ] Backend `/api/explain` order: Redis → `vdict_words` (by LOWER(text)) → `words` → LLM
+- [ ] Popup card refactor: render meanings list + IPA + word_type from vdict, fall back to LLM rich fields if present
+- [ ] Add `source: 'vdict' | 'llm' | 'cache'` indicator to the popup ("📚 dictionary" vs "✨ AI")
+
+---
+
+## Phase 8c — Local n-gram sentence flow (next-next, see ADR 021)
+
+**Goal:** drop the 10–20s LLM call for sentences. Tokenize, look up n-grams (1–4 words) in `vdict_words`, show keyword chips at ~100ms. No more sentence-level LLM call for keyword extraction.
+
+---
+
+## Phase 9 – K8s Migration (Future — when cluster is ready)
 
 **Goal:** Move backend to Kubernetes; extension works with remote backend URL.
 

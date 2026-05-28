@@ -94,7 +94,7 @@ CREATE TABLE words (
     text            TEXT NOT NULL,
     word_type       TEXT,
     pronunciation   TEXT,
-    explanation     TEXT NOT NULL,             -- Vietnamese, ~100 words
+    explanation     TEXT NOT NULL,             -- Vietnamese, ~100 words, 2-4 paragraphs separated by \n\n
     example         TEXT,                       -- English example sentence
     synonyms        JSONB NOT NULL DEFAULT '[]',
     collocations    JSONB NOT NULL DEFAULT '[]',
@@ -102,18 +102,29 @@ CREATE TABLE words (
     source_url      TEXT,
     source_sentence TEXT,
     model_source    TEXT,                       -- LLM that produced this row
-    up_vote         INTEGER NOT NULL DEFAULT 0,
-    down_vote       INTEGER NOT NULL DEFAULT 0,
     query_count     INTEGER NOT NULL DEFAULT 1,
     last_queried_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     reviewed_at     TIMESTAMPTZ
 );
 
+CREATE TABLE word_votes (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    word_id     UUID NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    user_email  VARCHAR(320) NOT NULL,
+    direction   VARCHAR(4) NOT NULL CHECK (direction IN ('up', 'down')),
+    voted_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX uq_word_votes_word_user ON word_votes (word_id, user_email);
+CREATE INDEX ix_word_votes_word_id ON word_votes (word_id);
+
 -- One row per (case-insensitive) word — enforced by:
 CREATE UNIQUE INDEX uq_words_lower_text ON words (LOWER(text));
 
--- Listings order: (up_vote - down_vote) DESC, last_queried_at DESC
+-- Listings order: aggregate (up - down) DESC, last_queried_at DESC
+--   up_vote   = COUNT(word_votes WHERE direction='up')
+--   down_vote = COUNT(word_votes WHERE direction='down')
+--   user_vote = the current authenticated user's vote, or NULL
 ```
 
 _(There is no `openrouter_models` table any more — see [ADR 010](adr/010-hardcode-model-no-picker.md).)_
@@ -246,7 +257,7 @@ See [ADR 015](adr/015-popup-theming.md).
 
 LLM explanations are cached at `explain:{model}:{sha256(text.strip().lower())}` with a 30-day TTL. The cache key includes the model id, so switching models gives a separate namespace and no flush is needed when the user changes the model. Cache hits return in <100ms vs. 2–20s for an OpenRouter call.
 
-**Lookup order for "wordish" inputs** (`len(text.split()) <= 2`): Redis → PostgreSQL → LLM. For sentence inputs, the DB step is skipped (the `words` table only holds single-word/phrase rows). See [ADR 011](adr/011-db-as-second-tier-cache.md).
+**Lookup order for "wordish" inputs** (`len(text.split()) <= 2`): Redis → PostgreSQL → LLM. For sentence inputs (>2 tokens), the path is entirely different: Redis (at `gt:en-vi:{hash}`) → Google Translate → cache + return. No DB, no LLM. See [ADR 011](adr/011-db-as-second-tier-cache.md) for the word path and [ADR 022](adr/022-google-translate-for-sentences.md) for the sentence path.
 
 **Pattern:** cache-aside.
 1. Receive `POST /api/explain { text }`
@@ -334,12 +345,121 @@ Quota considerations: `chrome.storage.local` has a 5 MB limit. A `WordRead` row 
 
 ---
 
-## 11. Words endpoint ordering & votes
+## 11. Words endpoint ordering & per-user votes
 
-Listings (`GET /api/words`, `GET /api/words/today`, `GET /api/game/today`) all order by `(up_vote - down_vote) DESC, created_at DESC` so words the user explicitly marked for more review surface first. Voting is a single endpoint:
+Votes are stored in a separate `word_votes(word_id, user_email, direction)` table with `UNIQUE (word_id, user_email)`. Listings compute aggregates via LEFT JOIN:
+
+```sql
+SELECT w.*,
+  (SELECT COUNT(*) FROM word_votes v WHERE v.word_id = w.id AND v.direction = 'up')   AS up_vote,
+  (SELECT COUNT(*) FROM word_votes v WHERE v.word_id = w.id AND v.direction = 'down') AS down_vote,
+  (SELECT v.direction FROM word_votes v WHERE v.word_id = w.id AND v.user_email = :current_email LIMIT 1) AS user_vote
+FROM words w
+ORDER BY (up_vote - down_vote) DESC, last_queried_at DESC;
+```
+
+`current_email` is set by the `current_user_email` FastAPI dependency, which reads `Authorization: Bearer <token>` and verifies it against Google's userinfo endpoint (cached in Redis 5 min).
+
+Voting endpoint requires authentication:
 
 ```
-POST /api/words/{id}/vote   body: { direction: "up" | "down" }
+POST /api/words/{id}/vote
+  Headers: Authorization: Bearer <google_access_token>
+  Body:    { direction: "up" | "down" }
 ```
 
-It increments the chosen counter and returns the updated `WordRead`. Idempotent on direction (each click adds 1; no per-user dedup — single-user tool). See [ADR 009](adr/009-word-voting.md).
+Toggle behaviour: clicking the same direction "unvotes" (DELETE the row); clicking the opposite switches the direction. Each click is one HTTP round-trip and the response includes fresh aggregates + `user_vote` for the caller.
+
+See [ADR 016](adr/016-per-user-vote-table.md).
+
+---
+
+## 12. Auth: Google OAuth via `chrome.identity`
+
+The extension uses Chrome's built-in identity API to obtain an OAuth access token signed by Google. No user-managed credentials, no password handling, no JWT validation — Google does the auth and we trust their userinfo response.
+
+**Flow:**
+
+```
+1. Service worker calls chrome.identity.getAuthToken({ interactive: true/false, scopes: ['openid','email','profile'] })
+2. Chrome returns an OAuth access_token (short-lived, ~1 hour)
+3. Service worker includes the token in Authorization: Bearer header for backend calls
+4. Backend's current_user_email dependency:
+     a. cache_get("auth:" + sha256(token))   →  hit returns email instantly
+     b. cache miss: GET https://openidconnect.googleapis.com/v1/userinfo with the token → {email, sub, name, ...}
+     c. cache_set the result with TTL 5 min
+5. The email becomes the per-user identifier for word_votes
+```
+
+**`manifest.json` requirements:**
+
+```json
+{
+  "permissions": ["identity", "storage", "activeTab"],
+  "oauth2": {
+    "client_id": "<your-client-id>.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  }
+}
+```
+
+**Setup steps** (one-time per developer): Google Cloud Console → Credentials → Create OAuth Client ID → Application type **Chrome Extension** → paste the extension's public key (from `chrome://extensions` → Details on the unpacked extension). Then paste the resulting client ID into `manifest.json`.
+
+**Security trade-offs:**
+
+| | Pros | Cons |
+|---|---|---|
+| **Verify via userinfo (chosen)** | Simple, no Google client libs, no JWT crypto | Adds latency (mitigated by 5min Redis cache); we trust Google's TLS |
+| Verify JWT locally with Google's JWKS | No external call per request | Need `google-auth` lib; JWKS refresh; more code |
+| Trust frontend-sent email | Trivial | Anyone can spoof — unacceptable |
+
+See [ADR 017](adr/017-google-oauth-via-chrome-identity.md).
+
+---
+
+## 13. Seed dictionary: vdict.com crawl
+
+A new read-only `vdict_words` table holds ~80k entries crawled from vdict.com's English → Vietnamese dictionary (`dict_id=1`). Phase 8a (current CR) only populates the table; Phase 8b will wire it into `/api/explain` as the primary lookup path before the LLM.
+
+**Schema:**
+
+```sql
+CREATE TABLE vdict_words (
+    vdict_id     INTEGER PRIMARY KEY,    -- vdict's internal word_id (from data-track-props)
+    text         VARCHAR(512) NOT NULL,
+    ipa          VARCHAR(256),
+    word_type    VARCHAR(64),             -- first POS or NULL (one word may have many POS)
+    meanings     JSONB NOT NULL DEFAULT '[]',  -- academic: [{"pos":"danh từ","items":["...","..."]}, ...]
+    friendly     JSONB NOT NULL DEFAULT '[]',  -- friendly: richer paragraph-style content
+    examples     JSONB NOT NULL DEFAULT '[]',  -- pulled from <li class="example"> in the friendly block
+    raw_html     TEXT,                    -- preserved so the parser can be re-run without re-fetching
+    crawled_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_vdict_words_lower_text ON vdict_words (LOWER(text));
+```
+
+**Crawler entry point:** `backend/app/jobs/crawl_vdict.py` — standalone async script, runnable as `python -m app.jobs.crawl_vdict`. Sitemap-driven, resumable, polite (3 concurrent, 250ms delay), idempotent UPSERT.
+
+**Source URLs (sitemaps):**
+- `https://vdict.com/sitemaps/sitemap-dict-1-1.xml` (50k entries)
+- `https://vdict.com/sitemaps/sitemap-dict-1-2.xml` (29.9k entries)
+
+**Responsible-crawling rules:** identify in User-Agent, default ≤12 req/s peak, back off on 429/5xx, don't redistribute the data publicly. robots.txt and llms.txt both allow this.
+
+**Dev probe endpoint:** `GET /api/dev/vdict/{text}` — gated by `settings.debug`, returns the row (raw_html stripped) by `LOWER(text)`. For verifying parser quality.
+
+See [ADR 020](adr/020-vdict-seed-dictionary.md) for full crawler design and [ADR 021](adr/021-local-ngram-sentence-flow.md) for the previously-planned n-gram sentence flow (now obsoleted by ADR 022).
+
+---
+
+## 14. Sentence translation: Google Translate (unofficial)
+
+Sentences (>2 tokens) skip the LLM entirely. The backend calls `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=<text>` and returns the Vietnamese translation as the `explanation` field. No keyword chips, no DB write.
+
+**Cache:** Redis key `gt:en-vi:{sha256(text.strip().lower())}`, TTL 30 days. Same Redis instance, namespaced separately from LLM responses.
+
+**No authentication.** The `client=gtx` query identifies as the public web Translate widget. Polite User-Agent and Accept-Language headers; standard low request volume.
+
+**Response shape:** nested arrays. Parser extracts `response[0][i][0]` for each translation segment and joins them.
+
+See [ADR 022](adr/022-google-translate-for-sentences.md).
