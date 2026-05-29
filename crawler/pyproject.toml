@@ -10,3 +10,8 @@ dependencies = [
     "asyncpg>=0.31.0",
     "pydantic-settings>=2.14.1",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.15",
+]
