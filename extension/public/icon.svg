@@ -1,48 +1,14 @@
 <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <!-- Modern gradient background -->
   <defs>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#2563EB;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
-    </linearGradient>
   </defs>
 
-  <!-- Rounded rectangle background with gradient -->
+  <!-- Rounded rectangle background -->
   <rect x="4" y="4" width="120" height="120" rx="28" ry="28" fill="url(#bgGradient)"/>
 
-  <!-- Book/Dictionary symbol (main element) -->
-  <g transform="translate(32, 28)">
-    <!-- Book spine (left side) -->
-    <path d="M 12 8 L 12 56 L 16 58 L 16 6 Z" fill="white" opacity="0.9"/>
-
-    <!-- Book pages (right side) -->
-    <path d="M 16 6 L 40 8 L 40 56 L 16 58 Z" fill="url(#accentGradient)"/>
-
-    <!-- Page lines representing text -->
-    <line x1="20" y1="18" x2="36" y2="18" stroke="white" stroke-width="1.5" opacity="0.8"/>
-    <line x1="20" y1="26" x2="36" y2="26" stroke="white" stroke-width="1.5" opacity="0.8"/>
-    <line x1="20" y1="34" x2="36" y2="34" stroke="white" stroke-width="1.5" opacity="0.8"/>
-    <line x1="20" y1="42" x2="32" y2="42" stroke="white" stroke-width="1.5" opacity="0.8"/>
-  </g>
-
-  <!-- Magnifying glass for "lookup" functionality -->
-  <g transform="translate(60, 52)">
-    <!-- Glass circle -->
-    <circle cx="12" cy="12" r="14" fill="none" stroke="white" stroke-width="2.5"/>
-    <!-- Handle -->
-    <line x1="24" y1="24" x2="32" y2="32" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-  </g>
-
-  <!-- "VVN" text badge - modern pill at bottom -->
-  <g transform="translate(64, 102)">
-    <rect x="-18" y="-7" width="36" height="14" rx="7" ry="7" fill="white"/>
-    <text x="0" y="2" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#1D4ED8" text-anchor="middle">VVN</text>
-  </g>
-
-  <!-- Subtle accent dot (Vietnamese flag red) -->
-  <circle cx="16" cy="16" r="4" fill="#DC2626" opacity="0.9"/>
+  <!-- VVN text - bold and centered -->
+  <text x="64" y="82" font-family="Arial, sans-serif" font-size="56" font-weight="900" fill="white" text-anchor="middle" letter-spacing="2">VVN</text>
 </svg>
