@@ -1,9 +1,9 @@
 <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <!-- Speech bubble - represents the instant word lookup popup -->
+  <!-- Speech bubble outline only — no fill -->
   <path d="M 26 6 L 102 6 Q 122 6 122 26 L 122 70 Q 122 90 102 90 L 52 90 L 24 122 L 14 90 Q 6 90 6 70 L 6 26 Q 6 6 26 6 Z"
-        fill="#4F46E5"/>
+        fill="none" stroke="#4F46E5" stroke-width="7" stroke-linejoin="round"/>
 
-  <!-- 4-pointed star - represents instant insight / AI explanation -->
+  <!-- 4-pointed sparkle — solid color -->
   <path d="M 66 22 L 73 42 L 92 48 L 73 54 L 66 74 L 59 54 L 38 48 L 59 42 Z"
-        fill="white"/>
+        fill="#4F46E5"/>
 </svg>
