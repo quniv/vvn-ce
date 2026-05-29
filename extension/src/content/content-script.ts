@@ -13,6 +13,8 @@ type ShadowMount = {
 let lookupMount: ShadowMount | null = null
 let popupMount: ShadowMount | null = null
 let dragging = false
+let resizing = false
+let popupSize = { w: 380, h: 380 }
 
 /**
  * Mount a Svelte component inside a Shadow DOM host positioned at (x, y).
@@ -27,7 +29,7 @@ function mountInShadow(
   y: number,
 ): ShadowMount {
   const host = document.createElement('div')
-  host.style.position = 'absolute'
+  host.style.position = 'fixed'
   host.style.left = `${x}px`
   host.style.top = `${y}px`
   host.style.zIndex = '2147483647'
@@ -106,18 +108,23 @@ function safeSendMessage(msg: Message): Promise<unknown> {
   return chrome.runtime.sendMessage(msg)
 }
 
+async function savePopupSize(w: number, h: number): Promise<void> {
+  popupSize = { w, h }
+  await chrome.storage.local.set({ popupSize })
+}
+
 function showPopup(text: string, sourceUrl: string): void {
   closePopup()
 
-  const POPUP_W = 380
-  const POPUP_H = 480
-  const x = window.scrollX + Math.max(0, (window.innerWidth - POPUP_W) / 2)
-  const y = window.scrollY + Math.max(0, (window.innerHeight - POPUP_H) / 2)
+  const x = Math.max(0, (window.innerWidth - popupSize.w) / 2)
+  const y = Math.max(0, (window.innerHeight - popupSize.h) / 2)
 
   const host = document.createElement('div')
-  host.style.position = 'absolute'
+  host.style.position = 'fixed'
   host.style.left = `${x}px`
   host.style.top = `${y}px`
+  host.style.width = `${popupSize.w}px`
+  host.style.height = `${popupSize.h}px`
   host.style.zIndex = '2147483647'
   host.style.pointerEvents = 'auto'
   document.body.appendChild(host)
@@ -146,6 +153,14 @@ function showPopup(text: string, sourceUrl: string): void {
         x: parseInt(host.style.left, 10),
         y: parseInt(host.style.top, 10),
       }),
+      onResizeStart: () => { resizing = true },
+      onResizeEnd: () => { resizing = false },
+      onResize: (newW: number, newH: number) => {
+        host.style.width = `${newW}px`
+        host.style.height = `${newH}px`
+        savePopupSize(newW, newH).catch(console.error)
+      },
+      getSize: () => popupSize,
     },
   })
   popupMount = { host, app }
@@ -179,13 +194,13 @@ function getSelectionInfo(): { text: string; x: number; y: number } | null {
 
   return {
     text,
-    x: window.scrollX + left,
-    y: window.scrollY + top,
+    x: left,
+    y: top,
   }
 }
 
 document.addEventListener('mouseup', (e) => {
-  if (dragging) return
+  if (dragging || resizing) return
   // Ignore clicks inside our own UI
   if (isHostNode(lookupMount?.host ?? null, e.target)) return
   if (isHostNode(popupMount?.host ?? null, e.target)) return
