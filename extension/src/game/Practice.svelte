@@ -4,6 +4,9 @@
 
   type View = 'list' | 'flashcard' | 'complete'
 
+  let { autoStart = false }: { autoStart?: boolean } = $props()
+  let hasAutoStarted = false
+
   let practiceList: PracticeItem[] = $state([])
   let view: View = $state('list')
   let currentIndex = $state(0)
@@ -34,6 +37,10 @@
         | PracticeItem[]
         | undefined
       practiceList = data ?? []
+      if (autoStart && !hasAutoStarted && dueToday.length > 0) {
+        hasAutoStarted = true
+        startSession()
+      }
     } catch (e) {
       console.error('Failed to load practice list:', e)
     }

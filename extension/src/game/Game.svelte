@@ -9,6 +9,7 @@
 
   // Default tab is Word Bank
   let activeTab = $state<Tab>('bank')
+  let practiceKey = $state(0)
   let dueCount = $state(0)
 
   if (typeof window !== 'undefined') {
@@ -18,6 +19,7 @@
 
   function setTab(t: Tab) {
     activeTab = t
+    if (t === 'practice') practiceKey++
     if (typeof window !== 'undefined') window.location.hash = t
   }
 
@@ -67,7 +69,9 @@
     {#if activeTab === 'bank'}
       <WordBank />
     {:else}
-      <Practice />
+      {#key practiceKey}
+        <Practice autoStart={true} />
+      {/key}
     {/if}
   </div>
 </main>
