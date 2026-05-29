@@ -6,9 +6,34 @@
     </linearGradient>
   </defs>
 
-  <!-- Rounded rectangle background -->
-  <rect x="4" y="4" width="120" height="120" rx="28" ry="28" fill="url(#bgGradient)"/>
+  <!-- Rounded background -->
+  <rect x="0" y="0" width="128" height="128" rx="32" ry="32" fill="url(#bgGradient)"/>
 
-  <!-- VVN text - bold and centered -->
-  <text x="64" y="82" font-family="Arial, sans-serif" font-size="56" font-weight="900" fill="white" text-anchor="middle" letter-spacing="2">VVN</text>
+  <!-- Book/Dictionary icon - open book style -->
+  <g transform="translate(64, 64)">
+    <!-- Left page -->
+    <path d="M -24 -28 Q -24 -20 -16 -16 L -2 -8 L -2 24 Q -8 28 -16 28 Q -24 28 -24 20 Z"
+          fill="white" opacity="0.85"/>
+
+    <!-- Right page -->
+    <path d="M 24 -28 Q 24 -20 16 -16 L 2 -8 L 2 24 Q 8 28 16 28 Q 24 28 24 20 Z"
+          fill="white"/>
+
+    <!-- Spine/Center line -->
+    <line x1="0" y1="-20" x2="0" y2="28" stroke="white" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Text lines on right page (representing content) -->
+    <line x1="6" y1="-8" x2="18" y2="-8" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
+    <line x1="6" y1="-2" x2="20" y2="-2" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
+    <line x1="6" y1="4" x2="20" y2="4" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
+    <line x1="6" y1="10" x2="18" y2="10" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
+
+    <!-- Accent highlight on left page -->
+    <circle cx="-12" cy="0" r="6" fill="white" opacity="0.3"/>
+  </g>
+
+  <!-- Small decorative element - Vietnamese flag colors -->
+  <g transform="translate(104, 20)">
+    <circle cx="0" cy="0" r="5" fill="#DC2626" opacity="0.9"/>
+  </g>
 </svg>
