@@ -1,25 +1,21 @@
 <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <!-- Creative V symbol with book/learning theme -->
+  <!-- Simple clean book icon -->
   <g transform="translate(64, 64)">
-    <!-- Left page - angled upward forming "V" -->
-    <path d="M -30 20 L -8 -28 L 0 -24 L -20 24 Z"
-          fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Left page -->
+    <path d="M -22 -26 L -4 -26 L -4 26 L -22 26 Q -28 22 -28 14 L -28 -14 Q -28 -22 -22 -26 Z"
+          fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Right page - angled upward forming "V" -->
-    <path d="M 30 20 L 8 -28 L 0 -24 L 20 24 Z"
-          fill="white" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Right page (filled) -->
+    <path d="M 4 -26 L 22 -26 Q 28 -22 28 -14 L 28 14 Q 28 22 22 26 L 4 26 Z"
+          fill="white" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Center spine - book binding -->
-    <line x1="0" y1="-28" x2="0" y2="24" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <!-- Spine/center -->
+    <line x1="0" y1="-26" x2="0" y2="26" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
 
-    <!-- Text/content lines on right page -->
-    <line x1="4" y1="-12" x2="14" y2="-4" stroke="#DC2626" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
-    <line x1="4" y1="-4" x2="14" y2="4" stroke="#DC2626" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
-    <line x1="4" y1="4" x2="12" y2="12" stroke="#DC2626" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
-
-    <!-- Vietnamese accent - red star at top -->
-    <g transform="translate(0, -36)">
-      <polygon points="0,-6 2,-1 7,-1 3,2 5,8 0,4 -5,8 -3,2 -7,-1 -2,-1" fill="#DC2626"/>
+    <!-- Checkmark on right page - representing learning progress -->
+    <g transform="translate(14, 2)">
+      <path d="M -8 0 L -2 6 L 8 -6"
+            fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
   </g>
 </svg>
