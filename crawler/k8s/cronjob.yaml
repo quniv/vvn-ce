@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: vdict-crawler
-  namespace: vocab
+  namespace: vvn
 spec:
   # Weekly, Sunday at 02:00 UTC — picks up new words vdict.com adds over time.
   # Run manually for the initial bulk crawl (see README or use a one-shot Job).

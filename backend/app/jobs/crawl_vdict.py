@@ -34,7 +34,7 @@ SITEMAPS = [
     "https://vdict.com/sitemaps/sitemap-dict-1-1.xml",
     "https://vdict.com/sitemaps/sitemap-dict-1-2.xml",
 ]
-USER_AGENT = "vocab-ce-crawler/1.0 (personal use; +https://github.com/qitpydev)"
+USER_AGENT = "vvn-crawler/1.0 (personal use; +https://github.com/qitpydev)"
 # Pattern: https://vdict.com/{word},1,0,0.html
 _URL_WORD = re.compile(r"^https://vdict\.com/(.+?),1,0,0\.html$")
 

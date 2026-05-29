@@ -59,7 +59,7 @@ CREATE INDEX ix_vdict_words_lower_text ON vdict_words (LOWER(text));
 
 **Crawler behaviour:**
 - Async (`httpx.AsyncClient`), max 3 concurrent requests, 250ms minimum delay between requests → ~12 req/s peak. Full crawl: ~2 hours.
-- Identifies as `User-Agent: vocab-ce-crawler/1.0 (personal use)`.
+- Identifies as `User-Agent: vvn-crawler/1.0 (personal use)`.
 - Resumable: on start, `SELECT vdict_id FROM vdict_words` and skip already-crawled IDs.
 - Idempotent: `INSERT ... ON CONFLICT (vdict_id) DO UPDATE` — re-running is safe and picks up parser improvements.
 - Backs off exponentially on 429/5xx, max 60s wait.

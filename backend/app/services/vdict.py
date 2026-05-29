@@ -24,7 +24,7 @@ from app.schemas.word import ExplainResponse
 logger = logging.getLogger(__name__)
 
 VDICT_BASE = "https://vdict.com"
-USER_AGENT = "vocab-ce-crawler/1.0 (personal use; +https://github.com/qitpydev)"
+USER_AGENT = "vvn-crawler/1.0 (personal use; +https://github.com/qitpydev)"
 _HEADERS = {"User-Agent": USER_AGENT, "Accept-Language": "vi,en;q=0.7"}
 
 

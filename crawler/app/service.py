@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 VDICT_BASE = "https://vdict.com"
 _HEADERS = {
-    "User-Agent": "vocab-ce-crawler/1.0 (personal use; +https://github.com/qitpydev)",
+    "User-Agent": "vvn-crawler/1.0 (personal use; +https://github.com/qitpydev)",
     "Accept-Language": "vi,en;q=0.7",
 }
 

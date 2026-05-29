@@ -1,13 +1,13 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: vocab-db
+    container_name: vvn-db
     environment:
       POSTGRES_USER: vocab
       POSTGRES_PASSWORD: vocab
       POSTGRES_DB: vocab
     volumes:
-      - vocab_pg_data:/var/lib/postgresql/data
+      - vvn_pg_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -18,10 +18,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: vocab-redis
+    container_name: vvn-redis
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - vocab_redis_data:/data
+      - vvn_redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -32,7 +32,7 @@ services:
 
   api:
     build: ./backend
-    container_name: vocab-api
+    container_name: vvn-api
     env_file:
       - ./backend/.env
     environment:
@@ -51,5 +51,5 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:
-  vocab_pg_data:
-  vocab_redis_data:
+  vvn_pg_data:
+  vvn_redis_data:

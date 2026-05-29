@@ -61,7 +61,7 @@ async function syncWordBank(): Promise<WordBankResponse> {
 }
 
 function triggerSync(): void {
-  syncWordBank().catch((e) => console.warn('[vocab-ce] background sync failed', e))
+  syncWordBank().catch((e) => console.warn('[vvn-ce] background sync failed', e))
 }
 
 async function handleExplain(payload: { text: string; source_url?: string }): Promise<ExplainResult> {

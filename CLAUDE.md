@@ -65,7 +65,7 @@ docker compose logs -f api                                                     #
 ## Project layout
 
 ```
-vocab-ce/
+vvn-ce/
 ├── backend/                    # FastAPI + SQLAlchemy + Redis + OpenRouter proxy
 │   ├── app/
 │   │   ├── main.py             # FastAPI app + lifespan + router registration

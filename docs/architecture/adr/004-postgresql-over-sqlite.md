@@ -44,7 +44,7 @@ Options considered:
 
 ```bash
 # Daily backup (add to crontab or systemd timer)
-docker exec vocab-ce-db-1 pg_dump -U vocab vocab > ~/backups/vocab-$(date +%Y%m%d).sql
+docker exec vvn-db pg_dump -U vocab vocab > ~/backups/vocab-$(date +%Y%m%d).sql
 ```
 
 This should be configured before any meaningful vocabulary data accumulates.

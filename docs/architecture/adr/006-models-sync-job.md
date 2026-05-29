@@ -75,7 +75,7 @@ spec:
         spec:
           containers:
             - name: sync-models
-              image: vocab-ce-api:latest
+              image: vvn-api:latest
               command: ["python", "-m", "app.jobs.sync_models"]
               envFrom: [{ secretRef: { name: vocab-secrets } }]
           restartPolicy: OnFailure

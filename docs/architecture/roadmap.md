@@ -8,7 +8,7 @@
 
 **Goal:** Backend running, DB schema in place, health endpoint returns 200.
 
-- [ ] `mkdir -p ~/Workspace/personal/vocab-ce/{extension,backend}`
+- [ ] `mkdir -p ~/Workspace/personal/vvn-ce/{extension,backend}`
 - [ ] Backend: `cd backend && uv init && uv add fastapi uvicorn sqlalchemy asyncpg alembic psycopg2-binary python-dotenv httpx`
 - [ ] Backend: Write `app/main.py` with FastAPI app + CORS middleware (allow all origins for localhost development)
 - [ ] Backend: Write DB models — `Word` table and `GameResult` table using SQLAlchemy 2.x async
