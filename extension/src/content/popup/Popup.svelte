@@ -1,15 +1,17 @@
 <script lang="ts">
+  import { mount, unmount } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import type {
     ExplainResponse,
     ExplainResult,
     KeywordItem,
     Message,
+    PracticeItem,
     SaveResult,
-    VoteDirection,
-    VoteResult,
   } from '../../lib/types'
+  import { PRACTICE_LIST_KEY } from '../../lib/types'
   import { effectiveTheme, getStoredTheme, setStoredTheme } from './theme'
+  import Fireworks from './Fireworks.svelte'
 
   type Props = {
     selectedText: string
@@ -20,11 +22,16 @@
     getPosition?: () => { x: number; y: number }
     onDragStart?: () => void
     onDragEnd?: () => void
+    onResizeStart?: () => void
+    onResizeEnd?: () => void
+    onResize?: (newW: number, newH: number) => void
+    getSize?: () => { w: number; h: number }
   }
 
-  const { selectedText, sourceUrl, onClose, sendMessage, onMove, getPosition, onDragStart, onDragEnd }: Props = $props()
+  const { selectedText, sourceUrl, onClose, sendMessage, onMove, getPosition, onDragStart, onDragEnd, onResizeStart, onResizeEnd, onResize, getSize }: Props = $props()
 
   let dragStart: { mouseX: number; mouseY: number; hostX: number; hostY: number } | null = null
+  let resizeStart: { mouseX: number; mouseY: number; startW: number; startH: number } | null = null
 
   function handleDragStart(e: MouseEvent) {
     if (!onMove || !getPosition) return
@@ -38,10 +45,16 @@
 
   function handleDragMove(e: MouseEvent) {
     if (!dragStart || !onMove) return
-    onMove(
-      dragStart.hostX + (e.clientX - dragStart.mouseX),
-      dragStart.hostY + (e.clientY - dragStart.mouseY),
-    )
+    const size = getSize?.()
+    if (!size) return
+
+    const newX = dragStart.hostX + (e.clientX - dragStart.mouseX)
+    const newY = dragStart.hostY + (e.clientY - dragStart.mouseY)
+
+    const clampedX = Math.max(0, Math.min(newX, window.innerWidth - size.w))
+    const clampedY = Math.max(0, Math.min(newY, window.innerHeight - size.h))
+
+    onMove(clampedX, clampedY)
   }
 
   function handleDragEnd() {
@@ -51,15 +64,41 @@
     window.removeEventListener('mouseup', handleDragEnd)
   }
 
+  function handleResizeStart(e: MouseEvent) {
+    if (!onResize || !getSize) return
+    e.preventDefault()
+    const size = getSize()
+    resizeStart = { mouseX: e.clientX, mouseY: e.clientY, startW: size.w, startH: size.h }
+    onResizeStart?.()
+    window.addEventListener('mousemove', handleResizeMove)
+    window.addEventListener('mouseup', handleResizeEnd)
+  }
+
+  function handleResizeMove(e: MouseEvent) {
+    if (!resizeStart || !onResize) return
+    const deltaX = e.clientX - resizeStart.mouseX
+    const deltaY = e.clientY - resizeStart.mouseY
+    const newW = Math.max(280, resizeStart.startW + deltaX)
+    const newH = Math.max(350, resizeStart.startH + deltaY)
+    onResize(newW, newH)
+  }
+
+  function handleResizeEnd() {
+    resizeStart = null
+    onResizeEnd?.()
+    window.removeEventListener('mousemove', handleResizeMove)
+    window.removeEventListener('mouseup', handleResizeEnd)
+  }
+
   let loading = $state(true)
   let error = $state<string | null>(null)
   let result = $state<ExplainResponse | null>(null)
   const selected = new SvelteSet<number>()
   let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle')
   let saveError = $state<string | null>(null)
-  let voteBusy = $state(false)
-  let voteError = $state<string | null>(null)
   let theme = $state<'dark' | 'light'>('dark')
+  let inPractice = $state(false)
+  let showingFireworks = $state(false)
 
   // Init theme + kick off the fetch once when the component is created
   void initTheme()
@@ -75,30 +114,6 @@
     await setStoredTheme(next)
   }
 
-  async function vote(direction: VoteDirection) {
-    if (!result || !result.saved_id || voteBusy) return
-    voteBusy = true
-    voteError = null
-    try {
-      const res = (await sendMessage({
-        type: 'VOTE',
-        payload: { wordId: result.saved_id, direction },
-      })) as VoteResult
-      if (res.ok) {
-        result = {
-          ...result,
-          up_vote: res.data.up_vote,
-          down_vote: res.data.down_vote,
-          user_vote: res.data.user_vote ?? null,
-        }
-      } else {
-        voteError = res.error
-      }
-    } finally {
-      voteBusy = false
-    }
-  }
-
   async function fetchExplain() {
     loading = true
     error = null
@@ -111,11 +126,63 @@
         error = res.error
       } else {
         result = res.data
+        await checkInPractice()
       }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e)
     } finally {
       loading = false
+    }
+  }
+
+  async function checkInPractice() {
+    if (!result || !result.saved_id) return
+    try {
+      const items = (await chrome.storage.local.get(PRACTICE_LIST_KEY))[PRACTICE_LIST_KEY] as PracticeItem[] | undefined
+      inPractice = Array.isArray(items) && items.some(item => item.id === result!.saved_id)
+    } catch (e) {
+      console.error('Failed to check practice list:', e)
+    }
+  }
+
+  async function addToPractice() {
+    if (!result || !result.saved_id || inPractice) return
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const items = (await chrome.storage.local.get(PRACTICE_LIST_KEY))[PRACTICE_LIST_KEY] as PracticeItem[] | undefined
+      const practiceList = items ?? []
+
+      const newItem: PracticeItem = {
+        id: result.saved_id,
+        text: result.text,
+        word_type: result.word_type,
+        pronunciation: result.pronunciation,
+        explanation: result.explanation,
+        example: result.example,
+        synonyms: result.synonyms ?? [],
+        collocations: result.collocations ?? [],
+        difficulty: result.difficulty,
+        audio_url: result.audio_url,
+        vdict_examples: result.vdict_examples,
+        added_at: new Date().toISOString(),
+        next_review: today,
+        interval: 1,
+        ease: 2.5,
+        review_count: 0,
+        last_level: null,
+      }
+
+      practiceList.push(newItem)
+      await chrome.storage.local.set({ [PRACTICE_LIST_KEY]: practiceList })
+
+      inPractice = true
+      showingFireworks = true
+
+      setTimeout(() => {
+        showingFireworks = false
+      }, 1500)
+    } catch (e) {
+      console.error('Failed to add to practice:', e)
     }
   }
 
@@ -152,13 +219,30 @@
   }
 </script>
 
+{#if showingFireworks}
+  <Fireworks onDone={() => {}} />
+{/if}
+
 <div class="card theme-{theme}" role="dialog">
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div class="drag-handle" role="separator" aria-label="Move card" onmousedown={handleDragStart}>⠿</div>
-  <button class="theme-btn" aria-label="Toggle theme" onclick={toggleTheme}>
-    {theme === 'dark' ? '☀️' : '🌙'}
-  </button>
+  <div class="header-buttons">
+    {#if result?.saved && result.saved_id && result.kind === 'word'}
+      <button
+        class="add-to-learn-btn"
+        onclick={addToPractice}
+        disabled={inPractice}
+        title={inPractice ? 'Already in practice' : 'Add this word to your practice list'}
+      >
+        {inPractice ? '✓ In practice' : '+ Practice'}
+      </button>
+    {/if}
+    <button class="theme-btn" aria-label="Toggle theme" onclick={toggleTheme}>
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  </div>
   <button class="close" aria-label="Close" onclick={onClose}>×</button>
+  <button class="resize-btn" aria-label="Resize card" onmousedown={handleResizeStart} title="Drag to resize">⤡</button>
 
   <div class="card-body">
   {#if loading}
@@ -199,7 +283,7 @@
         <div class="extra-block">
           <div class="extra-label">Examples</div>
           <div class="example-pairs">
-            {#each result.vdict_examples as ex (ex.en)}
+            {#each result.vdict_examples as ex, i (i)}
               <div class="example-pair">
                 <span class="ex-en">{ex.en}</span>
                 <span class="ex-vi">{ex.vi}</span>
@@ -215,7 +299,7 @@
         <div class="extra-block">
           <div class="extra-label">Synonyms</div>
           <div class="syn-chips">
-            {#each result.synonyms as s (s)}
+            {#each result.synonyms as s, i (i)}
               <span class="syn-chip">{s}</span>
             {/each}
           </div>
@@ -225,50 +309,11 @@
         <div class="extra-block">
           <div class="extra-label">Phrasal / Idioms</div>
           <ul class="colloc-list">
-            {#each result.collocations as c (c)}
+            {#each result.collocations as c, i (i)}
               <li>{c}</li>
             {/each}
           </ul>
         </div>
-      {/if}
-      {#if result.saved && result.saved_id}
-        <div class="vote-row">
-          <button
-            class="vote-btn up"
-            class:active={result.user_vote === 'up'}
-            onclick={() => vote('up')}
-            disabled={voteBusy}
-            title={result.user_vote === 'up' ? 'Click again to remove your upvote' : 'Worth studying more'}
-          >
-            👍 {result.up_vote}
-          </button>
-          <button
-            class="vote-btn down"
-            class:active={result.user_vote === 'down'}
-            onclick={() => vote('down')}
-            disabled={voteBusy}
-            title={result.user_vote === 'down' ? 'Click again to remove your downvote' : 'I know this already'}
-          >
-            👎 {result.down_vote}
-          </button>
-          {#if result.query_count && result.query_count > 1}
-            <span class="query-count" title="Times you've looked this up">
-              ×{result.query_count}
-            </span>
-          {/if}
-          <span class="source-tag">
-            {#if result.cached}⚡ cached{:else if result.db_hit}📚 from bank{:else}✨ fresh{/if}
-          </span>
-        </div>
-        {#if voteError}
-          <div class="vote-error">
-            {#if voteError.includes('Sign-in') || voteError.includes('401')}
-              🔐 Sign in with Google to vote — click 👍/👎 again to retry.
-            {:else}
-              {voteError}
-            {/if}
-          </div>
-        {/if}
       {/if}
     {:else}
       <!-- Sentence flow: Google Translate gives a Vietnamese translation only.

@@ -5,7 +5,6 @@ import {
   type ExplainResult,
   type Message,
   type SaveResult,
-  type VoteResult,
   type WordBankResponse,
   type WordRead,
 } from '../lib/types'
@@ -110,33 +109,6 @@ async function handleSaveKeywords(payload: {
   }
 }
 
-async function handleVote(payload: { wordId: string; direction: 'up' | 'down' }): Promise<VoteResult> {
-  const backendUrl = await getBackendUrl()
-  // Vote requires sign-in — interactive flow
-  const token = await getAccessToken(true)
-  if (!token) {
-    return { ok: false, error: 'Sign-in required (cancelled or no Google account in Chrome)' }
-  }
-  try {
-    const res = await fetch(`${backendUrl}/api/words/${payload.wordId}/vote`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ direction: payload.direction }),
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
-    }
-    triggerSync()
-    return { ok: true, data: await res.json() }
-  } catch (e) {
-    return { ok: false, error: `Network error: ${e instanceof Error ? e.message : String(e)}` }
-  }
-}
-
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   if (msg.type === 'EXPLAIN') {
     handleExplain(msg.payload).then(sendResponse)
@@ -144,10 +116,6 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   }
   if (msg.type === 'SAVE_KEYWORDS') {
     handleSaveKeywords(msg.payload).then(sendResponse)
-    return true
-  }
-  if (msg.type === 'VOTE') {
-    handleVote(msg.payload).then(sendResponse)
     return true
   }
   if (msg.type === 'SYNC_WORDBANK') {
