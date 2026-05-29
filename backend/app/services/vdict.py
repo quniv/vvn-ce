@@ -128,22 +128,34 @@ def vdict_to_explain_response(vw: VdictWord, *, cached: bool, db_hit: bool) -> E
     """Convert a VdictWord row to an ExplainResponse for the popup."""
     # meanings: [{pos, items: [{vi, description}]}]
     lines: list[str] = []
+    meanings: list[dict] = []
     for section in (vw.meanings or []):
         pos = section.get("pos", "")
         if pos:
             lines.append(pos)
+        items = []
         for item in section.get("items", []):
-            vi = item.get("vi", "")
-            desc = item.get("description", "")
-            if desc:
-                lines.append(f"• {vi}: {desc}")
-            elif vi:
-                lines.append(f"• {vi}")
+            if isinstance(item, dict):
+                vi = item.get("vi", "")
+                desc = item.get("description", "")
+            else:
+                vi = str(item)
+                desc = ""
+            if vi:
+                items.append({"vi": vi, "description": desc})
+                if desc:
+                    lines.append(f"• {vi}: {desc}")
+                else:
+                    lines.append(f"• {vi}")
+        if pos or items:
+            meanings.append({"pos": pos, "items": items})
     explanation = "\n".join(lines) if lines else "(no definition available)"
 
     # examples: [{en, vi}]
     raw_examples: list[dict] = vw.examples or []
-    example = raw_examples[0].get("en") if raw_examples else None
+    example = None
+    if raw_examples and isinstance(raw_examples[0], dict):
+        example = raw_examples[0].get("en")
 
     # friendly: {synonyms, phrasal_verbs, idioms}
     friendly: dict = vw.friendly if isinstance(vw.friendly, dict) else {}
@@ -152,18 +164,27 @@ def vdict_to_explain_response(vw: VdictWord, *, cached: bool, db_hit: bool) -> E
     # collocations = phrasal_verbs + idioms as "phrase: vi" strings
     collocations: list[str] = []
     for pv in friendly.get("phrasal_verbs", []):
+        if not isinstance(pv, dict):
+            continue
         phrase = pv.get("phrase", "")
         vi = pv.get("vi", "")
         if phrase and vi:
             collocations.append(f"{phrase}: {vi}")
     for id_ in friendly.get("idioms", []):
+        if not isinstance(id_, dict):
+            continue
         phrase = id_.get("phrase", "")
         vi = id_.get("vi", "")
         if phrase and vi:
             collocations.append(f"{phrase}: {vi}")
 
     # vdict_examples: all bilingual pairs for the popup examples block
-    vdict_examples = [{"en": e.get("en", ""), "vi": e.get("vi", "")} for e in raw_examples]
+    vdict_examples = []
+    for e in raw_examples:
+        if isinstance(e, dict):
+            vdict_examples.append({"en": e.get("en", ""), "vi": e.get("vi", "")})
+        else:
+            vdict_examples.append({"en": "", "vi": ""})
 
     return ExplainResponse(
         kind="word",
@@ -181,6 +202,7 @@ def vdict_to_explain_response(vw: VdictWord, *, cached: bool, db_hit: bool) -> E
         model_source="vdict",
         audio_url=vw.audio_url,
         vdict_examples=vdict_examples,
+        meanings=meanings,
         cached=cached,
         db_hit=db_hit,
     )

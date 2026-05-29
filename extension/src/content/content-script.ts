@@ -14,7 +14,15 @@ let lookupMount: ShadowMount | null = null
 let popupMount: ShadowMount | null = null
 let dragging = false
 let resizing = false
-let popupSize = { w: 380, h: 380 }
+
+function getDefaultPopupWidth(): number {
+  const screenWidth = window.innerWidth
+  // On mobile: ~90% of screen, on desktop: ~25% but max 450px, min 280px
+  const width = Math.min(450, Math.max(280, screenWidth * 0.8))
+  return Math.round(width)
+}
+
+let popupSize = { w: getDefaultPopupWidth(), h: 400 }
 
 /**
  * Mount a Svelte component inside a Shadow DOM host positioned at (x, y).
@@ -117,14 +125,14 @@ function showPopup(text: string, sourceUrl: string): void {
   closePopup()
 
   const x = Math.max(0, (window.innerWidth - popupSize.w) / 2)
-  const y = Math.max(0, (window.innerHeight - popupSize.h) / 2)
+  const y = Math.max(0, (window.innerHeight - popupSize.h) / 3)
 
   const host = document.createElement('div')
   host.style.position = 'fixed'
   host.style.left = `${x}px`
   host.style.top = `${y}px`
-  host.style.width = `${popupSize.w}px`
   host.style.height = `${popupSize.h}px`
+  host.style.width = `${popupSize.w}px`
   host.style.zIndex = '2147483647'
   host.style.pointerEvents = 'auto'
   document.body.appendChild(host)
@@ -157,7 +165,6 @@ function showPopup(text: string, sourceUrl: string): void {
       onResizeEnd: () => { resizing = false },
       onResize: (newW: number, newH: number) => {
         host.style.width = `${newW}px`
-        host.style.height = `${newH}px`
         savePopupSize(newW, newH).catch(console.error)
       },
       getSize: () => popupSize,

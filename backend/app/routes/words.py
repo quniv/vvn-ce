@@ -1,23 +1,22 @@
+import logging
 from datetime import datetime, time, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_, case, delete, func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_db
-from app.models.vote import WordVote
 from app.models.word import Word
-from app.routes.auth_deps import current_user_email, require_user_email
+from app.routes.auth_deps import current_user_email
 from app.schemas.word import (
     ExplainRequest,
     ExplainResponse,
     KeywordItem,
     SaveKeywordsRequest,
-    VoteRequest,
     WordRead,
 )
 from app.services.cache import cache_get, cache_key, cache_set
@@ -38,10 +37,11 @@ from app.services.vdict import (
     vdict_to_explain_response,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 EmailOptDep = Annotated[str | None, Depends(current_user_email)]
-EmailReqDep = Annotated[str, Depends(require_user_email)]
 
 
 def _today_range() -> tuple[datetime, datetime]:
@@ -52,67 +52,10 @@ def _today_range() -> tuple[datetime, datetime]:
 
 
 def _is_wordish(text: str) -> bool:
-    return len(text.strip().split()) <= 2
+    return len(text.strip().split()) == 1
 
 
-# ── Vote aggregation helpers ───────────────────────────────────────
-
-def _vote_aggregates_subquery():
-    """Returns a selectable for use as `.add_columns(...)`:
-    (up_count_sq, down_count_sq) where each is a correlated scalar subquery
-    counting `word_votes.direction = 'up' | 'down'` for the outer Word.id.
-    """
-    up = (
-        select(func.count(WordVote.id))
-        .where(and_(WordVote.word_id == Word.id, WordVote.direction == "up"))
-        .correlate(Word)
-        .scalar_subquery()
-    )
-    down = (
-        select(func.count(WordVote.id))
-        .where(and_(WordVote.word_id == Word.id, WordVote.direction == "down"))
-        .correlate(Word)
-        .scalar_subquery()
-    )
-    return up, down
-
-
-def _user_vote_subquery(user_email: str | None):
-    """Returns a correlated scalar subquery for the current user's vote,
-    or a constant NULL when no user is authenticated."""
-    if not user_email:
-        # SQL literal NULL cast to text
-        from sqlalchemy import literal_column
-
-        return literal_column("CAST(NULL AS TEXT)").label("user_vote")
-    return (
-        select(WordVote.direction)
-        .where(and_(WordVote.word_id == Word.id, WordVote.user_email == user_email))
-        .correlate(Word)
-        .scalar_subquery()
-    )
-
-
-async def _word_with_aggregates(
-    db: AsyncSession, word_id: UUID, user_email: str | None
-) -> tuple[Word, int, int, str | None] | None:
-    up_sq, down_sq = _vote_aggregates_subquery()
-    user_vote_sq = _user_vote_subquery(user_email)
-    stmt = (
-        select(Word, up_sq.label("up_vote"), down_sq.label("down_vote"), user_vote_sq)
-        .where(Word.id == word_id)
-    )
-    result = await db.execute(stmt)
-    row = result.first()
-    if row is None:
-        return None
-    word, up, down, user_vote = row
-    return word, int(up or 0), int(down or 0), user_vote
-
-
-def _word_to_word_read(
-    word: Word, up: int, down: int, user_vote: str | None
-) -> WordRead:
+def _word_to_word_read(word: Word) -> WordRead:
     return WordRead(
         id=word.id,
         text=word.text,
@@ -126,9 +69,6 @@ def _word_to_word_read(
         source_url=word.source_url,
         source_sentence=word.source_sentence,
         model_source=word.model_source,
-        up_vote=up,
-        down_vote=down,
-        user_vote=user_vote if user_vote in ("up", "down") else None,
         query_count=word.query_count,
         last_queried_at=word.last_queried_at,
         created_at=word.created_at,
@@ -200,9 +140,6 @@ async def _upsert_word(
 
 def _explain_response_from_row(
     row: Word,
-    up: int,
-    down: int,
-    user_vote: str | None,
     *,
     cached: bool,
     db_hit: bool,
@@ -222,9 +159,6 @@ def _explain_response_from_row(
         saved=True,
         saved_id=row.id,
         model_source=row.model_source or model,
-        up_vote=up,
-        down_vote=down,
-        user_vote=user_vote if user_vote in ("up", "down") else None,
         query_count=row.query_count,
         cached=cached,
         db_hit=db_hit,
@@ -254,7 +188,7 @@ async def _llm_call(text: str) -> WordResponse | SentenceResponse:
 async def explain(
     req: ExplainRequest, db: DbDep, current_email: EmailOptDep
 ) -> ExplainResponse:
-    """Route entry. Branches on word (≤2 tokens) vs sentence (>2 tokens).
+    """Route entry. Branches on word (1 token) vs sentence (≥2 tokens).
 
     - Word path: Redis (LLM cache) → Postgres → LLM. Auto-saves to `words`.
     - Sentence path: Redis (Google Translate cache) → Google Translate. No DB write,
@@ -299,12 +233,8 @@ async def _explain_word(
                     db, word_resp,
                     source_url=req.source_url, source_sentence=None, model=model,
                 )
-                agg = await _word_with_aggregates(db, row.id, current_email)
-                if agg is None:
-                    raise HTTPException(500, "Failed to read back upserted word")
-                _, up, down, user_vote = agg
                 return _explain_response_from_row(
-                    row, up, down, user_vote, cached=True, db_hit=False, model=model,
+                    row, cached=True, db_hit=False, model=model,
                 )
         # If the legacy cache holds a sentence shape under the old key, ignore it —
         # sentence flow has moved off the LLM (ADR 022). Fall through to a fresh call.
@@ -330,25 +260,67 @@ async def _explain_word(
             word_resp.model_dump(mode="json"),
             ttl_seconds=settings.cache_ttl_seconds,
         )
-        agg = await _word_with_aggregates(db, row.id, current_email)
-        if agg is None:
-            raise HTTPException(500, "Failed to read back DB-hit word")
-        _, up, down, user_vote = agg
         return _explain_response_from_row(
-            row, up, down, user_vote, cached=False, db_hit=True, model=model,
+            row, cached=False, db_hit=True, model=model,
         )
 
     # Tier 3: vdict_words table (on-demand crawl if not cached)
     vdict_row = await vdict_lookup_in_db(db, req.text)
     if vdict_row is not None:
-        return vdict_to_explain_response(vdict_row, cached=False, db_hit=True)
+        # Create WordResponse from vdict data
+        from app.services.vdict import vdict_to_explain_response as _vdict_response
+        vdict_response = _vdict_response(vdict_row, cached=False, db_hit=True)
+
+        # Also save to words table so user can interact (add to learn, etc)
+        word_resp = WordResponse(
+            kind="word",
+            text=vdict_row.text,
+            word_type=vdict_row.word_type,
+            pronunciation=vdict_row.ipa,
+            explanation=vdict_response.explanation,
+            example=vdict_response.example,
+            synonyms=vdict_response.synonyms,
+            collocations=vdict_response.collocations,
+            difficulty=None,
+        )
+        row = await _upsert_word(
+            db, word_resp,
+            source_url=req.source_url, source_sentence=None, model=model,
+        )
+        # Return vdict response but with saved ID
+        vdict_response.saved = True
+        vdict_response.saved_id = row.id
+        return vdict_response
 
     # Tier 4: on-demand vdict.com fetch → save to vdict_words
     crawl_result = await fetch_and_parse(req.text)
     if crawl_result is not None:
         raw_html, entry = crawl_result
         vdict_row = await vdict_upsert_to_db(db, entry, raw_html)
-        return vdict_to_explain_response(vdict_row, cached=False, db_hit=False)
+
+        from app.services.vdict import vdict_to_explain_response as _vdict_response
+        vdict_response = _vdict_response(vdict_row, cached=False, db_hit=False)
+
+        # Also save to words table so user can interact
+        word_resp = WordResponse(
+            kind="word",
+            text=vdict_row.text,
+            word_type=vdict_row.word_type,
+            pronunciation=vdict_row.ipa,
+            explanation=vdict_response.explanation,
+            example=vdict_response.example,
+            synonyms=vdict_response.synonyms,
+            collocations=vdict_response.collocations,
+            difficulty=None,
+        )
+        row = await _upsert_word(
+            db, word_resp,
+            source_url=req.source_url, source_sentence=None, model=model,
+        )
+        # Return vdict response but with saved ID
+        vdict_response.saved = True
+        vdict_response.saved_id = row.id
+        return vdict_response
 
     # Tier 5: LLM fallback — disabled by default (set USE_LLM_FALLBACK=true to re-enable)
     if not settings.use_llm_fallback:
@@ -358,19 +330,20 @@ async def _explain_word(
         )
 
     response = await _llm_call(req.text)
-    await cache_set(key, response.model_dump(mode="json"), ttl_seconds=settings.cache_ttl_seconds)
 
     if isinstance(response, WordResponse):
+        try:
+            await cache_set(key, response.model_dump(mode="json"), ttl_seconds=settings.cache_ttl_seconds)
+        except Exception as e:
+            # Log cache failure but don't fail the entire request
+            logger.warning("Failed to cache LLM response for %s: %s", req.text, e)
+
         row = await _upsert_word(
             db, response,
             source_url=req.source_url, source_sentence=None, model=model,
         )
-        agg = await _word_with_aggregates(db, row.id, current_email)
-        if agg is None:
-            raise HTTPException(500, "Failed to read back upserted word")
-        _, up, down, user_vote = agg
         return _explain_response_from_row(
-            row, up, down, user_vote, cached=False, db_hit=False, model=model,
+            row, cached=False, db_hit=False, model=model,
         )
 
     raise HTTPException(
@@ -403,11 +376,7 @@ async def save_keywords(
             source_sentence=req.source_sentence,
             model=model,
         )
-        agg = await _word_with_aggregates(db, row.id, current_email)
-        if agg is None:
-            continue
-        _, up, down, user_vote = agg
-        saved.append(_word_to_word_read(row, up, down, user_vote))
+        saved.append(_word_to_word_read(row))
     return saved
 
 
@@ -435,71 +404,15 @@ async def _list_words(
     extra_filters: list | None = None,
     limit: int = 1000,
 ) -> list[WordRead]:
-    up_sq, down_sq = _vote_aggregates_subquery()
-    user_vote_sq = _user_vote_subquery(current_email)
-    stmt = select(
-        Word,
-        up_sq.label("up_vote"),
-        down_sq.label("down_vote"),
-        user_vote_sq,
-    )
+    stmt = select(Word)
     for f in extra_filters or []:
         stmt = stmt.where(f)
     stmt = stmt.order_by(
-        (up_sq - down_sq).desc(),
         Word.last_queried_at.desc(),
     ).limit(limit)
 
     result = await db.execute(stmt)
     out: list[WordRead] = []
-    for word, up, down, user_vote in result.all():
-        out.append(_word_to_word_read(word, int(up or 0), int(down or 0), user_vote))
+    for word in result.scalars().all():
+        out.append(_word_to_word_read(word))
     return out
-
-
-@router.post("/words/{word_id}/vote", response_model=WordRead)
-async def vote_word(
-    word_id: UUID, req: VoteRequest, db: DbDep, current_email: EmailReqDep
-) -> WordRead:
-    """Reddit-style vote toggle.
-
-    - No existing row → INSERT
-    - Same direction  → DELETE (unvote)
-    - Opposite        → UPDATE direction
-    """
-    existing = await db.execute(
-        select(WordVote)
-        .where(WordVote.word_id == word_id)
-        .where(WordVote.user_email == current_email)
-        .limit(1)
-    )
-    row = existing.scalar_one_or_none()
-
-    if row is None:
-        # Validate the word exists (to give a clean 404 vs an FK error)
-        word_exists = await db.execute(select(Word.id).where(Word.id == word_id))
-        if word_exists.scalar_one_or_none() is None:
-            raise HTTPException(status_code=404, detail="Word not found")
-        await db.execute(
-            pg_insert(WordVote).values(
-                word_id=word_id,
-                user_email=current_email,
-                direction=req.direction,
-            )
-        )
-    elif row.direction == req.direction:
-        await db.execute(delete(WordVote).where(WordVote.id == row.id))
-    else:
-        await db.execute(
-            update(WordVote)
-            .where(WordVote.id == row.id)
-            .values(direction=req.direction, voted_at=func.now())
-        )
-
-    await db.commit()
-
-    agg = await _word_with_aggregates(db, word_id, current_email)
-    if agg is None:
-        raise HTTPException(404, "Word not found")
-    word, up, down, user_vote = agg
-    return _word_to_word_read(word, up, down, user_vote)

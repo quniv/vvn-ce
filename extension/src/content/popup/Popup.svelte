@@ -72,6 +72,8 @@
     const size = getSize?.();
     if (!size) return;
 
+    // const newX = dragStart.hostX + (e.clientX - dragStart.mouseX);
+    // const newY = dragStart.hostY + (e.clientY - dragStart.mouseY);
     const newX = dragStart.hostX + (e.clientX - dragStart.mouseX);
     const newY = dragStart.hostY + (e.clientY - dragStart.mouseY);
 
@@ -125,6 +127,9 @@
   let theme = $state<"dark" | "light">("dark");
   let inPractice = $state(false);
   let showingFireworks = $state(false);
+
+  type WordTab = 'meaning' | 'examples' | 'synonyms' | 'phrasal'
+  let activeTab = $state<WordTab>('meaning')
 
   // Init theme + kick off the fetch once when the component is created
   void initTheme();
@@ -217,7 +222,6 @@
       console.error("Failed to add to practice:", e);
     }
   }
-
 </script>
 
 {#if showingFireworks}
@@ -294,44 +298,86 @@
             >
           {/if}
         </header>
-        <p class="explanation">{result.explanation}</p>
 
-        {#if result.vdict_examples && result.vdict_examples.length > 0}
-          <div class="extra-block">
-            <div class="extra-label">Examples</div>
-            <div class="example-pairs">
-              {#each result.vdict_examples as ex, i (i)}
-                <div class="example-pair">
-                  <span class="ex-en">{ex.en}</span>
-                  <span class="ex-vi">{ex.vi}</span>
-                </div>
+        <!-- Tab bar -->
+        <nav class="word-tabs">
+          <button
+            class="tab-btn"
+            class:active={activeTab === 'meaning'}
+            onclick={() => activeTab = 'meaning'}
+          >Meaning</button>
+          <button
+            class="tab-btn"
+            class:active={activeTab === 'examples'}
+            onclick={() => activeTab = 'examples'}
+          >Examples</button>
+          {#if result.synonyms && result.synonyms.length > 0}
+            <button
+              class="tab-btn"
+              class:active={activeTab === 'synonyms'}
+              onclick={() => activeTab = 'synonyms'}
+            >Synonyms</button>
+          {/if}
+          {#if result.collocations && result.collocations.length > 0}
+            <button
+              class="tab-btn"
+              class:active={activeTab === 'phrasal'}
+              onclick={() => activeTab = 'phrasal'}
+            >Phrasal / Idioms</button>
+          {/if}
+        </nav>
+
+        <!-- Tab panels -->
+        <div class="tab-panel">
+          {#if activeTab === 'meaning'}
+            {#if result.meanings && result.meanings.length > 0}
+              {#each result.meanings as group}
+                {#if group.pos}
+                  <div class="pos-label">{group.pos}</div>
+                {/if}
+                <ul class="meaning-list">
+                  {#each group.items as item}
+                    <li>
+                      <span class="meaning-vi">{item.vi}</span>
+                      {#if item.description}
+                        <span class="meaning-desc">: {item.description}</span>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
               {/each}
-            </div>
-          </div>
-        {:else if result.example}
-          <p class="example">"<em>{result.example}</em>"</p>
-        {/if}
-
-        {#if result.synonyms && result.synonyms.length > 0}
-          <div class="extra-block">
-            <div class="extra-label">Synonyms</div>
+            {:else}
+              <p class="explanation">{result.explanation}</p>
+            {/if}
+          {:else if activeTab === 'examples'}
+            {#if result.vdict_examples && result.vdict_examples.length > 0}
+              <div class="example-pairs">
+                {#each result.vdict_examples as ex, i (i)}
+                  <div class="example-pair">
+                    <span class="ex-en">{ex.en}</span>
+                    <span class="ex-vi">{ex.vi}</span>
+                  </div>
+                {/each}
+              </div>
+            {:else if result.example}
+              <p class="example">"<em>{result.example}</em>"</p>
+            {:else}
+              <p class="tab-empty">No examples available.</p>
+            {/if}
+          {:else if activeTab === 'synonyms'}
             <div class="syn-chips">
-              {#each result.synonyms as s, i (i)}
+              {#each result.synonyms ?? [] as s, i (i)}
                 <span class="syn-chip">{s}</span>
               {/each}
             </div>
-          </div>
-        {/if}
-        {#if result.collocations && result.collocations.length > 0}
-          <div class="extra-block">
-            <div class="extra-label">Phrasal / Idioms</div>
+          {:else if activeTab === 'phrasal'}
             <ul class="colloc-list">
-              {#each result.collocations as c, i (i)}
+              {#each result.collocations ?? [] as c, i (i)}
                 <li>{c}</li>
               {/each}
             </ul>
-          </div>
-        {/if}
+          {/if}
+        </div>
       {:else}
         <!-- Sentence flow: Google Translate gives a Vietnamese translation only.
            No keyword chips, no save UI. To save a specific word from a sentence,

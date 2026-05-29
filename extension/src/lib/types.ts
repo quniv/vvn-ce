@@ -11,6 +11,16 @@ export type KeywordItem = {
   difficulty?: string | null
 }
 
+export type MeaningItem = {
+  vi: string
+  description: string
+}
+
+export type MeaningGroup = {
+  pos: string
+  items: MeaningItem[]
+}
+
 export type ExplainResponse = {
   kind: 'word' | 'sentence'
   text: string
@@ -30,6 +40,7 @@ export type ExplainResponse = {
   db_hit?: boolean
   audio_url?: string | null
   vdict_examples?: Array<{ en: string; vi: string }>
+  meanings?: MeaningGroup[] | null
 }
 
 export type WordRead = {

@@ -1,11 +1,15 @@
 <script lang="ts">
-  import GameTab from './GameTab.svelte'
+  import { onMount } from 'svelte'
+  import type { PracticeItem } from '../lib/types'
+  import { PRACTICE_LIST_KEY } from '../lib/types'
+  import Practice from './Practice.svelte'
   import WordBank from './WordBank.svelte'
 
   type Tab = 'practice' | 'bank'
 
-  // Default tab is now Word Bank (game is disabled — Spaced Repetition coming, see ADR 019)
+  // Default tab is Word Bank
   let activeTab = $state<Tab>('bank')
+  let dueCount = $state(0)
 
   if (typeof window !== 'undefined') {
     const initial = window.location.hash.replace('#', '') as Tab
@@ -16,6 +20,34 @@
     activeTab = t
     if (typeof window !== 'undefined') window.location.hash = t
   }
+
+  async function updateDueCount() {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const data = (await chrome.storage.local.get(PRACTICE_LIST_KEY))[PRACTICE_LIST_KEY] as
+        | PracticeItem[]
+        | undefined
+      const list = data ?? []
+      dueCount = list.filter(item => item.next_review <= today).length
+
+      // Update Chrome action badge
+      if (chrome.action) {
+        const text = dueCount > 0 ? String(dueCount) : ''
+        await chrome.action.setBadgeText({ text })
+        await chrome.action.setBadgeBackgroundColor({ color: '#3b82f6' })
+      }
+    } catch (e) {
+      console.error('Failed to update due count:', e)
+    }
+  }
+
+  onMount(() => {
+    void updateDueCount()
+    // Listen for storage changes to update badge in real-time
+    const listener = () => void updateDueCount()
+    chrome.storage.onChanged.addListener(listener)
+    return () => chrome.storage.onChanged.removeListener(listener)
+  })
 </script>
 
 <main>
@@ -25,6 +57,9 @@
     </button>
     <button class:active={activeTab === 'practice'} onclick={() => setTab('practice')}>
       🧠 Practice
+      {#if dueCount > 0}
+        <span class="badge">{dueCount}</span>
+      {/if}
     </button>
   </nav>
 
@@ -32,7 +67,7 @@
     {#if activeTab === 'bank'}
       <WordBank />
     {:else}
-      <GameTab />
+      <Practice />
     {/if}
   </div>
 </main>
@@ -72,5 +107,22 @@
   .tabs button.active {
     color: #60a5fa;
     border-bottom-color: #3b82f6;
+  }
+  .tabs button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+  .badge {
+    background: #3b82f6;
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+    line-height: 1.2;
   }
 </style>

@@ -1,0 +1,28 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue rounded rectangle background, full canvas with ~4px margin -->
+  <rect x="4" y="4" width="120" height="120" rx="24" ry="24" fill="#3B82F6"/>
+
+  <!-- Large white "E" letter -->
+  <text x="36" y="88" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white" text-anchor="start">E</text>
+
+  <!-- Graduation cap (mortarboard) - SVG path centered on top -->
+  <g transform="translate(55, 35)">
+    <!-- Cap board -->
+    <rect x="-18" y="-8" width="36" height="8" rx="2" fill="white"/>
+    <!-- Tassel circle -->
+    <circle cx="0" cy="0" r="5" fill="white"/>
+    <!-- Tassel line -->
+    <line x1="0" y1="5" x2="0" y2="16" stroke="white" stroke-width="2"/>
+  </g>
+
+  <!-- Small gold/yellow star (sparkle) near top-right -->
+  <g transform="translate(95, 25)">
+    <polygon points="0,-8 2,-2 8,-1 3,3 5,9 0,5 -5,9 -3,3 -8,-1 -2,-2" fill="#FCD34D"/>
+  </g>
+
+  <!-- "VN" badge - white rounded pill bottom-right -->
+  <g transform="translate(86, 98)">
+    <rect x="-14" y="-8" width="28" height="16" rx="8" ry="8" fill="white"/>
+    <text x="0" y="4" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#3B82F6" text-anchor="middle">VN</text>
+  </g>
+</svg>

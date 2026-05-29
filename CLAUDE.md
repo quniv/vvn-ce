@@ -155,6 +155,15 @@ POST /api/explain {text}
 | `word_votes` | Reddit-style toggle votes. Unique `(word_id, user_email)`. Toggle: same dir → DELETE, opposite → UPDATE. |
 | `vdict_words` | Read-only vdict.com seed data. `vdict_id` PK (not autoincrement). `meanings` JSONB `[{pos, items:[{vi,description}]}]`, `examples` JSONB `[{en,vi}]`, `friendly` JSONB `{synonyms, phrasal_verbs, idioms}`. |
 
+## Popup behavior
+
+- **Default dimensions**: 380×380px (width × height)
+- **Min-height constraint**: 350px prevents popup from shrinking below this when resizing
+- **Min-width constraint**: 280px (set in resize handler)
+- **Scrolling**: `.card-body` has `overflow-y: auto` — scrollbar appears automatically when content exceeds visible area
+- **Resizing**: Drag handle (⤡) at bottom-right corner. Horizontal drag affects width only, vertical drag affects height only (independent axes)
+- **First load**: Popup opens at 380px height; if content is shorter, scrollbar doesn't appear; if content is longer, scrollbar enables scrolling
+
 ## Common pitfalls
 
 - **"Cannot read properties of undefined (reading 'sendMessage')"** in the extension popup → stale content script. **Refresh the webpage (F5)** after reloading the extension.
