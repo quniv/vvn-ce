@@ -1,39 +1,21 @@
 <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#2563EB;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-
-  <!-- Rounded background -->
-  <rect x="0" y="0" width="128" height="128" rx="32" ry="32" fill="url(#bgGradient)"/>
-
-  <!-- Book/Dictionary icon - open book style -->
+  <!-- Book/Dictionary icon - simple glyph style -->
   <g transform="translate(64, 64)">
     <!-- Left page -->
-    <path d="M -24 -28 Q -24 -20 -16 -16 L -2 -8 L -2 24 Q -8 28 -16 28 Q -24 28 -24 20 Z"
-          fill="white" opacity="0.85"/>
+    <path d="M -20 -24 L -6 -24 L -6 24 L -20 24 Q -26 20 -26 12 L -26 -12 Q -26 -20 -20 -24 Z"
+          fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 
     <!-- Right page -->
-    <path d="M 24 -28 Q 24 -20 16 -16 L 2 -8 L 2 24 Q 8 28 16 28 Q 24 28 24 20 Z"
-          fill="white"/>
+    <path d="M 6 -24 L 20 -24 Q 26 -20 26 -12 L 26 12 Q 26 20 20 24 L 6 24 Z"
+          fill="white" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Spine/Center line -->
-    <line x1="0" y1="-20" x2="0" y2="28" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    <!-- Spine -->
+    <line x1="-6" y1="-24" x2="-6" y2="24" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
 
-    <!-- Text lines on right page (representing content) -->
-    <line x1="6" y1="-8" x2="18" y2="-8" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
-    <line x1="6" y1="-2" x2="20" y2="-2" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
-    <line x1="6" y1="4" x2="20" y2="4" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
-    <line x1="6" y1="10" x2="18" y2="10" stroke="#2563EB" stroke-width="1.2" opacity="0.7"/>
-
-    <!-- Accent highlight on left page -->
-    <circle cx="-12" cy="0" r="6" fill="white" opacity="0.3"/>
-  </g>
-
-  <!-- Small decorative element - Vietnamese flag colors -->
-  <g transform="translate(104, 20)">
-    <circle cx="0" cy="0" r="5" fill="#DC2626" opacity="0.9"/>
+    <!-- Text lines on right page -->
+    <line x1="2" y1="-14" x2="18" y2="-14" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="2" y1="-6" x2="18" y2="-6" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="2" y1="2" x2="18" y2="2" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="2" y1="10" x2="16" y2="10" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"/>
   </g>
 </svg>
