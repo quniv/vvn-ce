@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Trivy — filesystem scan
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -46,7 +46,7 @@ jobs:
         run: docker build -t vvn-backend:scan ./backend
 
       - name: Trivy — backend image scan
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: vvn-backend:scan
@@ -73,7 +73,7 @@ jobs:
         run: docker build -t vvn-crawler:scan ./crawler
 
       - name: Trivy — crawler image scan
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: vvn-crawler:scan
