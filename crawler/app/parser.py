@@ -15,9 +15,11 @@ from selectolax.parser import HTMLParser
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ExamplePair:
     """A bilingual example: English sentence + Vietnamese translation."""
+
     en: str
     vi: str
 
@@ -25,22 +27,25 @@ class ExamplePair:
 @dataclass
 class DefinitionItem:
     """One meaning entry inside a POS group."""
-    vi: str           # bold short meaning, e.g. "Từ bỏ, bỏ rơi, ruồng bỏ"
+
+    vi: str  # bold short meaning, e.g. "Từ bỏ, bỏ rơi, ruồng bỏ"
     description: str  # explanation after the colon
 
 
 @dataclass
 class DefinitionGroup:
     """All meanings for one part-of-speech."""
-    pos: str                             # "Động từ", "Danh từ", …
+
+    pos: str  # "Động từ", "Danh từ", …
     items: list[DefinitionItem] = field(default_factory=list)
 
 
 @dataclass
 class PhrasalEntry:
     """A phrasal verb or idiom entry."""
-    phrase: str                          # "to abandon to" / "With gay abandon"
-    vi: str                              # Vietnamese gloss
+
+    phrase: str  # "to abandon to" / "With gay abandon"
+    vi: str  # Vietnamese gloss
     examples: list[ExamplePair] = field(default_factory=list)
 
 
@@ -49,7 +54,7 @@ class ParsedEntry:
     vdict_id: int | None
     text: str
     ipa: str | None
-    word_type: str | None                # first POS from definitions
+    word_type: str | None  # first POS from definitions
     definitions: list[DefinitionGroup]
     examples: list[ExamplePair]
     synonyms: list[str]
@@ -61,11 +66,12 @@ class ParsedEntry:
 # ── Pre-compiled patterns ─────────────────────────────────────────────────────
 
 _WORD_ID_PATTERN = re.compile(r'"word_id":\s*(\d+)')
-_IPA_PATTERN = re.compile(r'/[^/]+/')
-_WS_COLLAPSE = re.compile(r'\s+')
+_IPA_PATTERN = re.compile(r"/[^/]+/")
+_WS_COLLAPSE = re.compile(r"\s+")
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
+
 
 def _clean_text(s: str) -> str:
     return _WS_COLLAPSE.sub(" ", s).strip()
@@ -79,6 +85,7 @@ def _extract_word_id(html: str) -> int | None:
 
 # ── Per-item parsers ──────────────────────────────────────────────────────────
 
+
 def _parse_example_li(li) -> ExamplePair | None:
     div = li.css_first("div")
     if div is None:
@@ -90,11 +97,11 @@ def _parse_example_li(li) -> ExamplePair | None:
     if not en:
         return None
     full = _clean_text(div.text())
-    after_en = full[full.find(en) + len(en):].strip() if en in full else ""
+    after_en = full[full.find(en) + len(en) :].strip() if en in full else ""
     if after_en.startswith("(") and after_en.endswith(")"):
         vi = _clean_text(after_en[1:-1])
     else:
-        m = re.search(r'\((.+)\)\s*$', after_en, re.DOTALL)
+        m = re.search(r"\((.+)\)\s*$", after_en, re.DOTALL)
         vi = _clean_text(m.group(1)) if m else ""
     return ExamplePair(en=en, vi=vi)
 
@@ -107,7 +114,9 @@ def _parse_definition_example_li(li) -> DefinitionItem | None:
     full = _clean_text(div.text())
     if strong:
         vi = _clean_text(strong.text())
-        after = full[full.find(vi) + len(vi):].lstrip(":").strip() if vi in full else ""
+        after = (
+            full[full.find(vi) + len(vi) :].lstrip(":").strip() if vi in full else ""
+        )
         return DefinitionItem(vi=vi, description=after)
     return DefinitionItem(vi=full, description="") if full else None
 
@@ -121,15 +130,21 @@ def _parse_phrasal_li(li) -> PhrasalEntry | None:
         return None
     phrase = _clean_text(strong.text())
     full = _clean_text(mv.text())
-    after = full[full.find(phrase) + len(phrase):].lstrip(":").strip() if phrase in full else ""
+    after = (
+        full[full.find(phrase) + len(phrase) :].lstrip(":").strip()
+        if phrase in full
+        else ""
+    )
     examples = [
-        ex for li_ex in li.css("ul.examples-list li.example")
+        ex
+        for li_ex in li.css("ul.examples-list li.example")
         if (ex := _parse_example_li(li_ex)) is not None
     ]
     return PhrasalEntry(phrase=phrase, vi=after, examples=examples)
 
 
 # ── Section parsers ───────────────────────────────────────────────────────────
+
 
 def _parse_definitions(lst) -> list[DefinitionGroup]:
     groups: list[DefinitionGroup] = []
@@ -141,7 +156,8 @@ def _parse_definitions(lst) -> list[DefinitionGroup]:
         pos = _clean_text(strong.text()) if strong else ""
         pos = pos.rstrip(":")
         items = [
-            item for ex_li in li.css("ul.examples-list li.example")
+            item
+            for ex_li in li.css("ul.examples-list li.example")
             if (item := _parse_definition_example_li(ex_li)) is not None
         ]
         if pos or items:
@@ -169,7 +185,7 @@ def _parse_synonyms_section(lst) -> list[str]:
         colon_idx = text.find(":")
         if colon_idx == -1:
             continue
-        for w in text[colon_idx + 1:].rstrip(".").split(","):
+        for w in text[colon_idx + 1 :].rstrip(".").split(","):
             w = _clean_text(w)
             if w:
                 words.append(w)
@@ -178,16 +194,24 @@ def _parse_synonyms_section(lst) -> list[str]:
 
 def _parse_phrasal_section(lst) -> list[PhrasalEntry]:
     return [
-        entry for li in lst.css("li.meaning")
+        entry
+        for li in lst.css("li.meaning")
         if (entry := _parse_phrasal_li(li)) is not None
     ]
 
 
 # ── Friendly section walker ───────────────────────────────────────────────────
 
+
 def _parse_friendly(
     tree,
-) -> tuple[list[DefinitionGroup], list[ExamplePair], list[str], list[PhrasalEntry], list[PhrasalEntry]]:
+) -> tuple[
+    list[DefinitionGroup],
+    list[ExamplePair],
+    list[str],
+    list[PhrasalEntry],
+    list[PhrasalEntry],
+]:
     inner = tree.css_first("#friendlyDefinition .word-type-section .word-type-section")
     if inner is None:
         return [], [], [], [], []
@@ -223,6 +247,7 @@ def _parse_friendly(
 
 # ── Academic fallback ─────────────────────────────────────────────────────────
 
+
 def _parse_academic_fallback(tree) -> list[DefinitionGroup]:
     academic_root = tree.css_first("#academicDefinition")
     if academic_root is None:
@@ -244,6 +269,7 @@ def _parse_academic_fallback(tree) -> list[DefinitionGroup]:
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────
+
 
 def parse_entry(html: str) -> Optional[ParsedEntry]:
     """Parse a vdict.com word page. Returns None if the page has no valid entry."""

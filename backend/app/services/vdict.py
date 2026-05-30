@@ -36,12 +36,16 @@ async def fetch_html(word: str, max_retries: int = 3) -> str | None:
     """HTTP GET with exponential backoff. Returns None on 400 (no entry) or exhausted retries."""
     url = _word_url(word)
     backoff = 1.0
-    async with httpx.AsyncClient(headers=_HEADERS, follow_redirects=True, timeout=30.0) as client:
+    async with httpx.AsyncClient(
+        headers=_HEADERS, follow_redirects=True, timeout=30.0
+    ) as client:
         for attempt in range(max_retries):
             try:
                 res = await client.get(url)
             except (httpx.HTTPError, httpx.TimeoutException) as e:
-                logger.warning("HTTP error fetching %s (attempt %d): %s", url, attempt + 1, e)
+                logger.warning(
+                    "HTTP error fetching %s (attempt %d): %s", url, attempt + 1, e
+                )
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)
                 continue
@@ -50,8 +54,13 @@ async def fetch_html(word: str, max_retries: int = 3) -> str | None:
             if res.status_code == 400:
                 return None
             if res.status_code in (429, 502, 503, 504):
-                logger.warning("Status %d for %s (attempt %d), backing off %.1fs",
-                               res.status_code, url, attempt + 1, backoff)
+                logger.warning(
+                    "Status %d for %s (attempt %d), backing off %.1fs",
+                    res.status_code,
+                    url,
+                    attempt + 1,
+                    backoff,
+                )
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)
                 continue
@@ -85,7 +94,9 @@ async def lookup_in_db(db: AsyncSession, word: str) -> VdictWord | None:
     return result.scalar_one_or_none()
 
 
-async def upsert_to_db(db: AsyncSession, entry: ParsedEntry, raw_html: str) -> VdictWord:
+async def upsert_to_db(
+    db: AsyncSession, entry: ParsedEntry, raw_html: str
+) -> VdictWord:
     """INSERT … ON CONFLICT (vdict_id) DO UPDATE. Idempotent."""
     values = {
         "vdict_id": entry.vdict_id,
@@ -124,12 +135,14 @@ async def upsert_to_db(db: AsyncSession, entry: ParsedEntry, raw_html: str) -> V
     return result.scalar_one()
 
 
-def vdict_to_explain_response(vw: VdictWord, *, cached: bool, db_hit: bool) -> ExplainResponse:
+def vdict_to_explain_response(
+    vw: VdictWord, *, cached: bool, db_hit: bool
+) -> ExplainResponse:
     """Convert a VdictWord row to an ExplainResponse for the popup."""
     # meanings: [{pos, items: [{vi, description}]}]
     lines: list[str] = []
     meanings: list[dict] = []
-    for section in (vw.meanings or []):
+    for section in vw.meanings or []:
         pos = section.get("pos", "")
         if pos:
             lines.append(pos)

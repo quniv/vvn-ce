@@ -32,9 +32,7 @@ async def game_today(db: DbDep) -> GameTodayResponse:
         .order_by(Word.last_queried_at.desc())
     )
     rows = list(result.scalars().all())
-    pairs = [
-        GameWordPair(id=w.id, word=w.text, definition=w.explanation) for w in rows
-    ]
+    pairs = [GameWordPair(id=w.id, word=w.text, definition=w.explanation) for w in rows]
     random.shuffle(pairs)
     return GameTodayResponse(pairs=pairs)
 

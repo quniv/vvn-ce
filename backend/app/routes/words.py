@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime, time, timezone
-from typing import Annotated, Literal
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import case, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,6 @@ from app.routes.auth_deps import current_user_email
 from app.schemas.word import (
     ExplainRequest,
     ExplainResponse,
-    KeywordItem,
     SaveKeywordsRequest,
     WordRead,
 )
@@ -34,7 +33,6 @@ from app.services.vdict import (
     fetch_and_parse,
     lookup_in_db as vdict_lookup_in_db,
     upsert_to_db as vdict_upsert_to_db,
-    vdict_to_explain_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -230,11 +228,17 @@ async def _explain_word(
             word_resp = _cached_blob_to_word_response(cached_blob)
             if word_resp is not None:
                 row = await _upsert_word(
-                    db, word_resp,
-                    source_url=req.source_url, source_sentence=None, model=model,
+                    db,
+                    word_resp,
+                    source_url=req.source_url,
+                    source_sentence=None,
+                    model=model,
                 )
                 return _explain_response_from_row(
-                    row, cached=True, db_hit=False, model=model,
+                    row,
+                    cached=True,
+                    db_hit=False,
+                    model=model,
                 )
         # If the legacy cache holds a sentence shape under the old key, ignore it —
         # sentence flow has moved off the LLM (ADR 022). Fall through to a fresh call.
@@ -261,7 +265,10 @@ async def _explain_word(
             ttl_seconds=settings.cache_ttl_seconds,
         )
         return _explain_response_from_row(
-            row, cached=False, db_hit=True, model=model,
+            row,
+            cached=False,
+            db_hit=True,
+            model=model,
         )
 
     # Tier 3: vdict_words table (on-demand crawl if not cached)
@@ -269,6 +276,7 @@ async def _explain_word(
     if vdict_row is not None:
         # Create WordResponse from vdict data
         from app.services.vdict import vdict_to_explain_response as _vdict_response
+
         vdict_response = _vdict_response(vdict_row, cached=False, db_hit=True)
 
         # Also save to words table so user can interact (add to learn, etc)
@@ -284,8 +292,11 @@ async def _explain_word(
             difficulty=None,
         )
         row = await _upsert_word(
-            db, word_resp,
-            source_url=req.source_url, source_sentence=None, model=model,
+            db,
+            word_resp,
+            source_url=req.source_url,
+            source_sentence=None,
+            model=model,
         )
         # Return vdict response but with saved ID
         vdict_response.saved = True
@@ -299,6 +310,7 @@ async def _explain_word(
         vdict_row = await vdict_upsert_to_db(db, entry, raw_html)
 
         from app.services.vdict import vdict_to_explain_response as _vdict_response
+
         vdict_response = _vdict_response(vdict_row, cached=False, db_hit=False)
 
         # Also save to words table so user can interact
@@ -314,8 +326,11 @@ async def _explain_word(
             difficulty=None,
         )
         row = await _upsert_word(
-            db, word_resp,
-            source_url=req.source_url, source_sentence=None, model=model,
+            db,
+            word_resp,
+            source_url=req.source_url,
+            source_sentence=None,
+            model=model,
         )
         # Return vdict response but with saved ID
         vdict_response.saved = True
@@ -333,17 +348,27 @@ async def _explain_word(
 
     if isinstance(response, WordResponse):
         try:
-            await cache_set(key, response.model_dump(mode="json"), ttl_seconds=settings.cache_ttl_seconds)
+            await cache_set(
+                key,
+                response.model_dump(mode="json"),
+                ttl_seconds=settings.cache_ttl_seconds,
+            )
         except Exception as e:
             # Log cache failure but don't fail the entire request
             logger.warning("Failed to cache LLM response for %s: %s", req.text, e)
 
         row = await _upsert_word(
-            db, response,
-            source_url=req.source_url, source_sentence=None, model=model,
+            db,
+            response,
+            source_url=req.source_url,
+            source_sentence=None,
+            model=model,
         )
         return _explain_response_from_row(
-            row, cached=False, db_hit=False, model=model,
+            row,
+            cached=False,
+            db_hit=False,
+            model=model,
         )
 
     raise HTTPException(
@@ -371,7 +396,8 @@ async def save_keywords(
             difficulty=k.difficulty,
         )
         row = await _upsert_word(
-            db, word_resp,
+            db,
+            word_resp,
             source_url=req.source_url,
             source_sentence=req.source_sentence,
             model=model,

@@ -46,7 +46,9 @@ async def cache_get(key: str) -> dict[str, Any] | None:
         return None
 
 
-async def cache_set(key: str, value: dict[str, Any], ttl_seconds: int = 60 * 60 * 24 * 30) -> None:
+async def cache_set(
+    key: str, value: dict[str, Any], ttl_seconds: int = 60 * 60 * 24 * 30
+) -> None:
     try:
         await get_redis().set(key, json.dumps(value), ex=ttl_seconds)
     except Exception as e:

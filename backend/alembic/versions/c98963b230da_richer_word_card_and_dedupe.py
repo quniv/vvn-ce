@@ -5,6 +5,7 @@ Revises: dd624386b50f
 Create Date: 2026-05-24 17:00:54.419248
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'c98963b230da'
-down_revision: Union[str, Sequence[str], None] = 'dd624386b50f'
+revision: str = "c98963b230da"
+down_revision: Union[str, Sequence[str], None] = "dd624386b50f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -21,11 +22,38 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     # 1. Add new columns
-    op.add_column('words', sa.Column('synonyms', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=False))
-    op.add_column('words', sa.Column('collocations', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=False))
-    op.add_column('words', sa.Column('difficulty', sa.String(length=16), nullable=True))
-    op.add_column('words', sa.Column('query_count', sa.Integer(), server_default='1', nullable=False))
-    op.add_column('words', sa.Column('last_queried_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False))
+    op.add_column(
+        "words",
+        sa.Column(
+            "synonyms",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default="[]",
+            nullable=False,
+        ),
+    )
+    op.add_column(
+        "words",
+        sa.Column(
+            "collocations",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default="[]",
+            nullable=False,
+        ),
+    )
+    op.add_column("words", sa.Column("difficulty", sa.String(length=16), nullable=True))
+    op.add_column(
+        "words",
+        sa.Column("query_count", sa.Integer(), server_default="1", nullable=False),
+    )
+    op.add_column(
+        "words",
+        sa.Column(
+            "last_queried_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
 
     # 2. Collapse duplicates by LOWER(text). For each duplicate group:
     #    - keep the row with the highest net score (up_vote - down_vote)
@@ -75,18 +103,18 @@ def upgrade() -> None:
 
     # 3. Now safe to create the case-insensitive unique index
     op.create_index(
-        'uq_words_lower_text',
-        'words',
-        [sa.text('LOWER(text)')],
+        "uq_words_lower_text",
+        "words",
+        [sa.text("LOWER(text)")],
         unique=True,
     )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index('uq_words_lower_text', table_name='words')
-    op.drop_column('words', 'last_queried_at')
-    op.drop_column('words', 'query_count')
-    op.drop_column('words', 'difficulty')
-    op.drop_column('words', 'collocations')
-    op.drop_column('words', 'synonyms')
+    op.drop_index("uq_words_lower_text", table_name="words")
+    op.drop_column("words", "last_queried_at")
+    op.drop_column("words", "query_count")
+    op.drop_column("words", "difficulty")
+    op.drop_column("words", "collocations")
+    op.drop_column("words", "synonyms")

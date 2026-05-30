@@ -43,7 +43,9 @@ _SITEMAP_HEADERS = {
 
 async def fetch_sitemap_urls() -> list[str]:
     all_urls: list[str] = []
-    async with httpx.AsyncClient(headers=_SITEMAP_HEADERS, follow_redirects=True, timeout=30.0) as client:
+    async with httpx.AsyncClient(
+        headers=_SITEMAP_HEADERS, follow_redirects=True, timeout=30.0
+    ) as client:
         for url in SITEMAPS:
             logger.info("Fetching sitemap: %s", url)
             res = await client.get(url)
@@ -88,7 +90,9 @@ async def run(args: argparse.Namespace) -> None:
         logger.info("Already in DB: %d words", len(done))
         before = len(urls)
         urls = [u for u in urls if (_parse_word(u) or "").strip().lower() not in done]
-        logger.info("Skipping %d already-crawled; %d remain", before - len(urls), len(urls))
+        logger.info(
+            "Skipping %d already-crawled; %d remain", before - len(urls), len(urls)
+        )
 
     sem = asyncio.Semaphore(args.concurrency)
     stats = {"ok": 0, "not_found": 0, "parse_fail": 0}
@@ -118,8 +122,10 @@ async def run(args: argparse.Namespace) -> None:
 
     async with AsyncSessionLocal() as session:
         for chunk_start in range(0, total, batch_size):
-            chunk = urls[chunk_start: chunk_start + batch_size]
-            raw = await asyncio.gather(*[fetch_one(u) for u in chunk], return_exceptions=True)
+            chunk = urls[chunk_start : chunk_start + batch_size]
+            raw = await asyncio.gather(
+                *[fetch_one(u) for u in chunk], return_exceptions=True
+            )
 
             batch = []
             for r in raw:
@@ -140,16 +146,24 @@ async def run(args: argparse.Namespace) -> None:
             logger.info(
                 "Progress: %d/%d (%.1f%%) — ok=%d, not_found=%d, parse_fail=%d"
                 " — %.1f req/s — ETA %.1f min",
-                done, total, done * 100.0 / max(total, 1),
-                stats["ok"], stats["not_found"], stats["parse_fail"],
-                rate, eta_min,
+                done,
+                total,
+                done * 100.0 / max(total, 1),
+                stats["ok"],
+                stats["not_found"],
+                stats["parse_fail"],
+                rate,
+                eta_min,
             )
 
     elapsed = time.time() - start
     logger.info(
         "Done: %d URLs in %.1f min — ok=%d, not_found=%d, parse_fail=%d",
-        total, elapsed / 60,
-        stats["ok"], stats["not_found"], stats["parse_fail"],
+        total,
+        elapsed / 60,
+        stats["ok"],
+        stats["not_found"],
+        stats["parse_fail"],
     )
 
 
@@ -161,21 +175,48 @@ async def _main_async(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Crawl all vdict.com English-Vietnamese words")
-    p.add_argument("--concurrency", type=int, default=settings.concurrency,
-                   help=f"Max concurrent fetches (default {settings.concurrency})")
-    p.add_argument("--delay-ms", type=int, default=settings.delay_ms,
-                   help=f"Per-request delay in ms (default {settings.delay_ms})")
-    p.add_argument("--batch-size", type=int, default=settings.batch_size,
-                   help=f"DB commit every N words (default {settings.batch_size})")
-    p.add_argument("--no-raw-html", action="store_true", default=settings.no_raw_html,
-                   help="Skip storing raw HTML (saves ~8 GB)")
-    p.add_argument("--force", action="store_true", default=settings.force,
-                   help="Re-crawl words already in DB")
-    p.add_argument("--limit", type=int, default=settings.limit,
-                   help="Crawl only the first N sitemap URLs (for testing)")
-    p.add_argument("--log-file", default=settings.log_file,
-                   help="Also write log to this file path")
+    p = argparse.ArgumentParser(
+        description="Crawl all vdict.com English-Vietnamese words"
+    )
+    p.add_argument(
+        "--concurrency",
+        type=int,
+        default=settings.concurrency,
+        help=f"Max concurrent fetches (default {settings.concurrency})",
+    )
+    p.add_argument(
+        "--delay-ms",
+        type=int,
+        default=settings.delay_ms,
+        help=f"Per-request delay in ms (default {settings.delay_ms})",
+    )
+    p.add_argument(
+        "--batch-size",
+        type=int,
+        default=settings.batch_size,
+        help=f"DB commit every N words (default {settings.batch_size})",
+    )
+    p.add_argument(
+        "--no-raw-html",
+        action="store_true",
+        default=settings.no_raw_html,
+        help="Skip storing raw HTML (saves ~8 GB)",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        default=settings.force,
+        help="Re-crawl words already in DB",
+    )
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=settings.limit,
+        help="Crawl only the first N sitemap URLs (for testing)",
+    )
+    p.add_argument(
+        "--log-file", default=settings.log_file, help="Also write log to this file path"
+    )
     args = p.parse_args()
 
     try:

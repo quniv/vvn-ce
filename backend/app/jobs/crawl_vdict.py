@@ -98,7 +98,9 @@ async def run(args: argparse.Namespace) -> None:
     headers = {"User-Agent": USER_AGENT, "Accept-Language": "vi,en;q=0.7"}
 
     # Sitemap fetch uses a short-lived client; word fetches go via fetch_html() in the service
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as sitemap_client:
+    async with httpx.AsyncClient(
+        headers=headers, follow_redirects=True
+    ) as sitemap_client:
         urls = await fetch_sitemap_urls(sitemap_client)
     logger.info("Total URLs in sitemap: %d", len(urls))
 
@@ -120,11 +122,15 @@ async def run(args: argparse.Namespace) -> None:
                 done_text_set = {t.strip().lower() for t in done_texts.scalars().all()}
             before = len(urls)
             urls = [
-                u for u in urls
+                u
+                for u in urls
                 if (parse_word_from_url(u) or "").strip().lower() not in done_text_set
             ]
-            logger.info("Skipping %d already-crawled URLs; %d remain",
-                        before - len(urls), len(urls))
+            logger.info(
+                "Skipping %d already-crawled URLs; %d remain",
+                before - len(urls),
+                len(urls),
+            )
 
     sem = asyncio.Semaphore(args.concurrency)
     stats = {"ok": 0, "404": 0, "parse_fail": 0}
@@ -144,9 +150,14 @@ async def run(args: argparse.Namespace) -> None:
                 logger.info(
                     "Progress: %d/%d (%.1f%%) — ok=%d, 404=%d, parse_fail=%d — "
                     "%.1f req/s — ETA %.1f min",
-                    idx, total, idx * 100.0 / total,
-                    stats["ok"], stats["404"], stats["parse_fail"],
-                    rate, eta / 60,
+                    idx,
+                    total,
+                    idx * 100.0 / total,
+                    stats["ok"],
+                    stats["404"],
+                    stats["parse_fail"],
+                    rate,
+                    eta / 60,
                 )
 
     tasks = [worker(u, i) for i, u in enumerate(urls)]
@@ -155,7 +166,11 @@ async def run(args: argparse.Namespace) -> None:
     elapsed = time.time() - start
     logger.info(
         "Crawl complete: %d URLs in %.1f min — ok=%d, 404=%d, parse_fail=%d",
-        total, elapsed / 60, stats["ok"], stats["404"], stats["parse_fail"],
+        total,
+        elapsed / 60,
+        stats["ok"],
+        stats["404"],
+        stats["parse_fail"],
     )
 
 
@@ -167,15 +182,32 @@ async def main_async(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Crawl vdict.com dict_id=1 into vdict_words")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Only crawl the first N URLs from the sitemap (for testing)")
-    parser.add_argument("--concurrency", type=int, default=3,
-                        help="Max concurrent HTTP requests (default 3)")
-    parser.add_argument("--delay-ms", type=int, default=250,
-                        help="Per-request delay in milliseconds (default 250)")
-    parser.add_argument("--force", action="store_true",
-                        help="Re-crawl entries that already exist in the DB")
+    parser = argparse.ArgumentParser(
+        description="Crawl vdict.com dict_id=1 into vdict_words"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Only crawl the first N URLs from the sitemap (for testing)",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=3,
+        help="Max concurrent HTTP requests (default 3)",
+    )
+    parser.add_argument(
+        "--delay-ms",
+        type=int,
+        default=250,
+        help="Per-request delay in milliseconds (default 250)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-crawl entries that already exist in the DB",
+    )
     args = parser.parse_args()
 
     try:

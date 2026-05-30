@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -30,7 +29,9 @@ class Word(Base):
     source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     source_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_source: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    query_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
     last_queried_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

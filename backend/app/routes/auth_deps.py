@@ -17,7 +17,9 @@ def _extract_bearer(authorization: str | None) -> str | None:
     return token or None
 
 
-async def current_user_email(authorization: str | None = Header(default=None)) -> str | None:
+async def current_user_email(
+    authorization: str | None = Header(default=None),
+) -> str | None:
     """Returns the verified email if a valid Bearer token is present, or None.
 
     Used by endpoints that work both anonymously and authenticated (e.g. listings

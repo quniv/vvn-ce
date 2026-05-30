@@ -2,7 +2,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="CRAWLER_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="CRAWLER_", env_file=".env", extra="ignore"
+    )
 
     db_url: str = "postgresql+asyncpg://vocab:vocab@localhost:5432/vocab"
     concurrency: int = 8

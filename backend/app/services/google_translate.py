@@ -58,7 +58,9 @@ def _extract_translation(payload: Any) -> str:
     Segments are joined with a space.
     """
     if not isinstance(payload, list) or not payload:
-        raise GoogleTranslateError(f"Unexpected payload top-level: {type(payload).__name__}")
+        raise GoogleTranslateError(
+            f"Unexpected payload top-level: {type(payload).__name__}"
+        )
     segments = payload[0]
     if not isinstance(segments, list) or not segments:
         raise GoogleTranslateError("Payload[0] is missing or empty")
@@ -71,7 +73,9 @@ def _extract_translation(payload: Any) -> str:
     return "".join(parts).strip()
 
 
-async def translate(text: str, *, source: str = "en", target: str = "vi") -> tuple[str, bool]:
+async def translate(
+    text: str, *, source: str = "en", target: str = "vi"
+) -> tuple[str, bool]:
     """Translate `text` from `source` to `target`. Returns (translation, was_cached).
 
     Cache hits return immediately. On miss, hits Google's endpoint and writes the

@@ -12,7 +12,9 @@ class VdictWord(Base):
 
     __tablename__ = "vdict_words"
 
-    vdict_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    vdict_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=False
+    )
     text: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     ipa: Mapped[str | None] = mapped_column(String(256), nullable=True)
     word_type: Mapped[str | None] = mapped_column(String(64), nullable=True)

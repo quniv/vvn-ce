@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -46,11 +45,17 @@ class ExplainResponse(BaseModel):
     saved_id: uuid.UUID | None = None
     model_source: str | None = None
     query_count: int = 1
-    cached: bool = False    # True if served from Redis
-    db_hit: bool = False    # True if served from Postgres (skipped LLM)
-    audio_url: str | None = None  # vdict audio: https://audio.vdict.com/1/{vdict_id}.mp3
-    vdict_examples: list[dict] = Field(default_factory=list)  # [{en, vi}] bilingual pairs
-    meanings: list[MeaningGroup] = Field(default_factory=list)  # structured pos-grouped definitions
+    cached: bool = False  # True if served from Redis
+    db_hit: bool = False  # True if served from Postgres (skipped LLM)
+    audio_url: str | None = (
+        None  # vdict audio: https://audio.vdict.com/1/{vdict_id}.mp3
+    )
+    vdict_examples: list[dict] = Field(
+        default_factory=list
+    )  # [{en, vi}] bilingual pairs
+    meanings: list[MeaningGroup] = Field(
+        default_factory=list
+    )  # structured pos-grouped definitions
 
 
 class SaveKeywordsRequest(BaseModel):

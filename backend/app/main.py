@@ -35,4 +35,5 @@ app.include_router(game.router, prefix="/api", tags=["game"])
 # Developer-only routes — only mounted when DEBUG=true in .env
 if settings.debug:
     from app.routes import dev  # noqa: WPS433 — conditional import is intentional
+
     app.include_router(dev.router, prefix="/api", tags=["dev"])

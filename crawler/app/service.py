@@ -32,7 +32,9 @@ async def fetch_html(word: str, max_retries: int = 3) -> str | None:
     """HTTP GET with exponential backoff. Returns None on 400 or exhausted retries."""
     url = _word_url(word)
     backoff = 1.0
-    async with httpx.AsyncClient(headers=_HEADERS, follow_redirects=True, timeout=30.0) as client:
+    async with httpx.AsyncClient(
+        headers=_HEADERS, follow_redirects=True, timeout=30.0
+    ) as client:
         for attempt in range(max_retries):
             try:
                 res = await client.get(url)
@@ -46,8 +48,13 @@ async def fetch_html(word: str, max_retries: int = 3) -> str | None:
             if res.status_code == 400:
                 return None
             if res.status_code in (429, 502, 503, 504):
-                logger.warning("Status %d %s (attempt %d), backing off %.1fs",
-                               res.status_code, url, attempt + 1, backoff)
+                logger.warning(
+                    "Status %d %s (attempt %d), backing off %.1fs",
+                    res.status_code,
+                    url,
+                    attempt + 1,
+                    backoff,
+                )
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)
                 continue
