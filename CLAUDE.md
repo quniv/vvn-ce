@@ -112,12 +112,7 @@ vvn-ce/
 │   │   ├── cronjob.yaml        # weekly k8s CronJob (Sun 02:00 UTC, concurrencyPolicy=Forbid)
 │   │   └── secret.yaml.tpl     # DB URL secret template
 │   └── Dockerfile
-├── docker-compose.yml          # db + redis + api
-└── docs/architecture/          # READ THIS BEFORE BIG CHANGES
-    ├── README.md               # system diagram, component table, data flows
-    ├── tech-stack.md           # every layer + alternatives + rationale
-    ├── roadmap.md              # phased plan, current state, future K8s
-    └── adr/                    # numbered Architecture Decision Records (001–022)
+└── docker-compose.yml          # db + redis + api
 ```
 
 ## 5-tier lookup pipeline
@@ -142,10 +137,9 @@ POST /api/explain {text}
 - **`docker compose restart` does NOT re-read `env_file`.** After editing `backend/.env`, use `docker compose up -d --force-recreate api`. After `uv add`, also pass `--renew-anon-volumes --build`.
 - **Two-file Vite build.** Content script ships as a single IIFE (`vite.content.config.ts`, `inlineDynamicImports: true`). ES modules are not allowed in content scripts. HTML pages + service-worker use the main `vite.config.ts`.
 - **Shadow DOM is non-negotiable** for any UI mounted into host pages. Without it, host CSS will break the popup on any styled site.
-- **Backend owns the OpenRouter API key.** The extension never sees it. Model is `OPENROUTER_MODEL` env var — no user-facing model picker (ADR 010).
+- **Backend owns the OpenRouter API key.** The extension never sees it. Model is `OPENROUTER_MODEL` env var — no user-facing model picker.
 - **`words` table is deduplicated on `LOWER(text)`** via `uq_words_lower_text` unique index. Always use `INSERT … ON CONFLICT (LOWER(text)) DO UPDATE` (see `_upsert_word` in `backend/app/routes/words.py`).
 - **Crawler is self-contained.** `crawler/` imports nothing from `backend/`. `models.py` and `parser.py` are explicit mirrors — keep them in sync manually when the schema changes.
-- **ADR-driven.** Architecture decisions are in `docs/architecture/adr/` (001–022). Update the relevant ADR before touching structure for any significant change.
 
 ## DB tables at a glance
 
@@ -175,8 +169,6 @@ POST /api/explain {text}
 
 ## Where to look
 
-- `docs/architecture/README.md` — system diagram, full data flows
-- `docs/architecture/adr/` — all architectural decisions (ADR 010: no model picker, ADR 019: game deprecated, ADR 020: vdict crawler, ADR 022: sentences skip LLM)
-- `docs/architecture/roadmap.md` — phases shipped, K8s migration planned
 - `~/.claude/skills/fastapi-async/SKILL.md` — async SQLAlchemy patterns
 - `~/.claude/skills/chrome-ext-mv3/SKILL.md` — MV3 service worker quirks, Shadow DOM, Vite multi-entry
+- GitHub issues — open items and future work tracked at https://github.com/quniv/vvn-ce/issues
