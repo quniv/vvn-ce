@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
-    "fastapi>=0.137.1",
+    "fastapi>=0.138.0",
     "httpx>=0.28.1",
     "pydantic-settings>=2.14.1",
     "python-dotenv>=1.2.2",
