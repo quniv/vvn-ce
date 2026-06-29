@@ -1,0 +1,53 @@
+name: Helm Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Package & push Helm chart
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.17.x"
+
+      - name: Derive chart version from tag
+        id: ver
+        # Git tag is e.g. v1.2.3 — strip the leading "v" for the semver chart version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          CHART_VERSION="${TAG#v}"
+          echo "tag=${TAG}"            >> "$GITHUB_OUTPUT"
+          echo "chart=${CHART_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Update Chart.yaml version
+        run: |
+          sed -i "s/^version:.*/version: ${{ steps.ver.outputs.chart }}/" helm/vvn-ce/Chart.yaml
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ghcr.io \
+                --username "${{ github.actor }}" \
+                --password-stdin
+
+      - name: Package chart
+        run: helm package helm/vvn-ce --destination /tmp/helm-pkg
+
+      - name: Push chart to GHCR
+        run: |
+          helm push \
+            /tmp/helm-pkg/vvn-ce-${{ steps.ver.outputs.chart }}.tgz \
+            oci://ghcr.io/${{ github.repository_owner }}/charts
