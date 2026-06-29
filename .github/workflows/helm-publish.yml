@@ -21,15 +21,13 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
-          version: "3.17.x"
+          version: "latest"
 
       - name: Derive chart version from tag
         id: ver
         # Git tag is e.g. v1.2.3 — strip the leading "v" for the semver chart version
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          CHART_VERSION="${TAG#v}"
-          echo "tag=${TAG}"            >> "$GITHUB_OUTPUT"
+          CHART_VERSION="${GITHUB_REF_NAME#v}"
           echo "chart=${CHART_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Update Chart.yaml version
