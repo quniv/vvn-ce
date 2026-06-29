@@ -1,6 +1,5 @@
 """Integration tests for the /api/explain endpoint (5-tier lookup pipeline)."""
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,7 +52,9 @@ async def test_explain_word_db_hit(client: AsyncClient, db: AsyncSession):
     assert data["cached"] is False
 
 
-async def test_explain_word_case_insensitive_db_hit(client: AsyncClient, db: AsyncSession):
+async def test_explain_word_case_insensitive_db_hit(
+    client: AsyncClient, db: AsyncSession
+):
     """Lookup is case-insensitive — 'Hello' and 'hello' are the same word."""
     word = Word(
         text="Ephemeral_test",
@@ -77,7 +78,9 @@ async def test_explain_word_vdict_hit(client: AsyncClient, db: AsyncSession):
         text="tenacious_test",
         ipa="/tɪˈneɪʃəs/",
         word_type="Tính từ",
-        meanings=[{"pos": "Tính từ", "items": [{"vi": "Kiên trì", "description": "bền bỉ"}]}],
+        meanings=[
+            {"pos": "Tính từ", "items": [{"vi": "Kiên trì", "description": "bền bỉ"}]}
+        ],
         examples=[{"en": "She is tenacious.", "vi": "Cô ấy rất kiên trì."}],
         friendly={"synonyms": ["persistent"], "phrasal_verbs": [], "idioms": []},
     )
@@ -108,7 +111,9 @@ async def test_explain_empty_text_rejected(client: AsyncClient):
     assert resp.status_code == 422
 
 
-async def test_explain_increments_query_count(client: AsyncClient, db: AsyncSession, mocker):
+async def test_explain_increments_query_count(
+    client: AsyncClient, db: AsyncSession, mocker
+):
     """Each /explain call on a known word bumps its query_count."""
     mocker.patch("app.routes.words.fetch_and_parse", return_value=None)
 
@@ -123,7 +128,6 @@ async def test_explain_increments_query_count(client: AsyncClient, db: AsyncSess
     db.add(word)
     await db.commit()
     await db.refresh(word)
-    word_id = word.id
 
     await client.post("/api/explain", json={"text": "resilient_test"})
     await client.post("/api/explain", json={"text": "resilient_test"})

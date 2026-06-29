@@ -70,46 +70,66 @@ class TestVdictToExplainResponse:
         return SimpleNamespace(**defaults)
 
     def test_kind_is_word(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert resp.kind == "word"
 
     def test_text_passthrough(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert resp.text == "abandon"
 
     def test_model_source_is_vdict(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert resp.model_source == "vdict"
 
     def test_explanation_includes_pos_and_meaning(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert "Động từ" in resp.explanation
         assert "Từ bỏ" in resp.explanation
 
     def test_first_example_becomes_example_field(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert resp.example == "He abandoned the ship."
 
     def test_synonyms_extracted(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert "desert" in resp.synonyms
         assert "forsake" in resp.synonyms
 
     def test_phrasal_verb_becomes_collocation(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert any("abandon to" in c for c in resp.collocations)
 
     def test_audio_url_passthrough(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert resp.audio_url == "https://audio.vdict.com/1/12345.mp3"
 
     def test_vdict_examples_populated(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=False, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=False, db_hit=True
+        )
         assert len(resp.vdict_examples) == 1
         assert resp.vdict_examples[0]["en"] == "He abandoned the ship."
 
     def test_cached_flag_passthrough(self):
-        resp = vdict_to_explain_response(self._make_vdict_word(), cached=True, db_hit=True)
+        resp = vdict_to_explain_response(
+            self._make_vdict_word(), cached=True, db_hit=True
+        )
         assert resp.cached is True
 
     def test_empty_meanings_gives_fallback_explanation(self):
