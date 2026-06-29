@@ -27,15 +27,13 @@ backend:
     type: ClusterIP
     port: 8000
 
-  ingress:
+  httpRoute:
     enabled: false
-    className: ""
-    annotations: {}
-    host: ""
-    tls: []
-    #  - secretName: vvn-ce-tls
-    #    hosts:
-    #      - vocab.example.com
+    parentRefs:
+      - name: ""
+        namespace: ""
+    hostnames: []
+    #  - vocab.example.com
 
   resources:
     requests:
@@ -70,17 +68,13 @@ backend:
 # Crawler — weekly CronJob that refreshes vdict_words from vdict.com
 # ---------------------------------------------------------------------------
 crawler:
-  enabled: true
+  enabled: false
 
   image:
     repository: ghcr.io/quniv/vvn-ce/crawler
     tag: ""           # defaults to .Chart.AppVersion when empty
     pullPolicy: IfNotPresent
 
-  schedule: "0 2 * * 0"       # Sunday 02:00 UTC
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
   activeDeadlineSeconds: 14400  # 4 h hard timeout
   backoffLimit: 2
 

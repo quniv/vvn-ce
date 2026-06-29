@@ -1,0 +1,24 @@
+{{- if and .Values.backend.enabled .Values.backend.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "vvn-ce.fullname" . }}-backend
+  labels:
+    {{- include "vvn-ce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  parentRefs:
+    {{- toYaml .Values.backend.httpRoute.parentRefs | nindent 4 }}
+  {{- with .Values.backend.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "vvn-ce.fullname" . }}-backend
+          port: {{ .Values.backend.service.port }}
+{{- end }}
