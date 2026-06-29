@@ -7,7 +7,9 @@
     "build": "vite build && vite build --config vite.content.config.ts",
     "build:main": "vite build",
     "build:content": "vite build --config vite.content.config.ts",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "type": "module",
   "keywords": [],
@@ -17,9 +19,11 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@types/chrome": "^0.2.0",
+    "jsdom": "^26.0.0",
     "svelte": "^5.55.9",
     "svelte-check": "^4.4.8",
     "typescript": "^6.0.3",
-    "vite": "^8.0.14"
+    "vite": "^8.0.14",
+    "vitest": "^3.0.0"
   }
 }
