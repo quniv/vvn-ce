@@ -1,0 +1,102 @@
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Shared secret for DATABASE_URL and OPENROUTER_API_KEY.
+#    Set existingSecret to the name of a pre-existing Secret and skip creation;
+#    otherwise set create: true and fill databaseUrl / openrouterApiKey here.
+secret:
+  create: true
+  existingSecret: ""
+  databaseUrl: ""
+  openrouterApiKey: ""
+
+# ---------------------------------------------------------------------------
+# Backend — FastAPI application
+# ---------------------------------------------------------------------------
+backend:
+  enabled: true
+
+  image:
+    repository: ghcr.io/quniv/vvn-ce/backend
+    tag: ""           # defaults to .Chart.AppVersion when empty
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  httpRoute:
+    enabled: false
+    parentRefs:
+      - name: ""
+        namespace: ""
+    hostnames: []
+    #  - vocab.example.com
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Non-secret runtime config (mapped to env vars)
+  config:
+    redisUrl: "redis://redis:6379/0"
+    openrouterModel: "z-ai/glm-4.5-air:free"
+    openrouterBaseUrl: "https://openrouter.ai/api/v1"
+    corsOrigins: "*"
+    cacheTtlSeconds: "2592000"
+    debug: "false"
+    useLlmFallback: "false"
+
+  # Run `alembic upgrade head` as an init container before the API starts
+  migrations:
+    enabled: true
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# Crawler — weekly CronJob that refreshes vdict_words from vdict.com
+# ---------------------------------------------------------------------------
+crawler:
+  enabled: false
+
+  image:
+    repository: ghcr.io/quniv/vvn-ce/crawler
+    tag: ""           # defaults to .Chart.AppVersion when empty
+    pullPolicy: IfNotPresent
+
+  activeDeadlineSeconds: 14400  # 4 h hard timeout
+  backoffLimit: 2
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Non-secret crawler tuning (CRAWLER_* env vars)
+  config:
+    concurrency: "8"
+    delayMs: "100"
+    batchSize: "50"
+    noRawHtml: "true"
+    force: "false"
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

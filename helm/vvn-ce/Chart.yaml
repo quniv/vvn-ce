@@ -1,0 +1,12 @@
+apiVersion: v2
+name: vvn-ce
+description: Vocabulary Chrome Extension — FastAPI backend and vdict crawler
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - vocabulary
+  - fastapi
+  - crawler
+maintainers:
+  - name: quniv

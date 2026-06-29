@@ -1,0 +1,65 @@
+{{- if .Values.crawler.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "vvn-ce.fullname" . }}-crawler
+  labels:
+    {{- include "vvn-ce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: crawler
+spec:
+  backoffLimit: {{ .Values.crawler.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.crawler.activeDeadlineSeconds }}
+  template:
+    metadata:
+      {{- with .Values.crawler.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "vvn-ce.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: crawler
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.crawler.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: crawler
+          {{- with .Values.crawler.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.crawler.image.repository }}:{{ .Values.crawler.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.crawler.image.pullPolicy }}
+          env:
+            - name: CRAWLER_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vvn-ce.secretName" . }}
+                  key: DATABASE_URL
+            - name: CRAWLER_CONCURRENCY
+              value: {{ .Values.crawler.config.concurrency | quote }}
+            - name: CRAWLER_DELAY_MS
+              value: {{ .Values.crawler.config.delayMs | quote }}
+            - name: CRAWLER_BATCH_SIZE
+              value: {{ .Values.crawler.config.batchSize | quote }}
+            - name: CRAWLER_NO_RAW_HTML
+              value: {{ .Values.crawler.config.noRawHtml | quote }}
+            - name: CRAWLER_FORCE
+              value: {{ .Values.crawler.config.force | quote }}
+          resources:
+            {{- toYaml .Values.crawler.resources | nindent 12 }}
+      {{- with .Values.crawler.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.crawler.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.crawler.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
