@@ -20,7 +20,10 @@ from app.config import settings
 from app.db import Base
 from app import models  # noqa: F401 - registers models with Base.metadata
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# configparser's interpolation treats literal "%" as the start of its own
+# %(name)s syntax, which breaks percent-encoded URLs (e.g. a password
+# containing @ or #) — escape by doubling before handing it off.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 
