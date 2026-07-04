@@ -29,7 +29,11 @@
   ],
   "options_page": "options.html",
   "permissions": ["storage", "activeTab", "identity"],
-  "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8000/*"],
+  "host_permissions": [
+    "https://vvn-ce-api.qtlab.dev/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
   "oauth2": {
     "client_id": "159800413643-lul5hk1id1e4hntiemvh0sov30blsg62.apps.googleusercontent.com",
     "scopes": ["openid", "email", "profile"]
