@@ -100,7 +100,7 @@ export interface WordBankOptions {
   dateFilter: 'today' | 'week' | 'month' | 'all'
 }
 
-export const DEFAULT_BACKEND_URL = 'http://localhost:8000'
+export const DEFAULT_BACKEND_URL = 'https://vvn-ce-api.qtlab.dev'
 export const WORDBANK_STORAGE_KEY = 'wordBank'
 export const WORDBANK_SYNCED_AT_KEY = 'wordBankSyncedAt'
 export const POPUP_THEME_KEY = 'popupTheme'
