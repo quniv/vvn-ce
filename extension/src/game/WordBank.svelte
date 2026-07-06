@@ -8,6 +8,7 @@
     type WordBankResponse,
     type WordRead,
     type WordBankOptions,
+    type AuthResult,
   } from '../lib/types'
 
   type SortKey = 'recent' | 'most_queried' | 'alphabetical'
@@ -19,6 +20,8 @@
   let syncedAt = $state<string | null>(null)
   let syncing = $state(false)
   let syncError = $state<string | null>(null)
+  let authRequired = $state(false)
+  let signingIn = $state(false)
   let storageUsageKB = $state(0)
 
   let search = $state('')
@@ -170,6 +173,7 @@
   async function refresh() {
     syncing = true
     syncError = null
+    authRequired = false
     try {
       const msg: Message = { type: 'SYNC_WORDBANK' }
       const res = (await chrome.runtime.sendMessage(msg)) as WordBankResponse
@@ -177,11 +181,28 @@
         words = res.data
         syncedAt = res.syncedAt
         await updateStorageUsage()
+      } else if (res.authRequired) {
+        authRequired = true
       } else {
         syncError = res.error
       }
     } finally {
       syncing = false
+    }
+  }
+
+  async function signIn() {
+    signingIn = true
+    try {
+      const msg: Message = { type: 'SIGN_IN' }
+      const res = (await chrome.runtime.sendMessage(msg)) as AuthResult
+      if (res.ok) {
+        await refresh()
+      } else {
+        syncError = res.error
+      }
+    } finally {
+      signingIn = false
     }
   }
 
@@ -276,7 +297,14 @@
     </select>
   </div>
 
-  {#if syncError}
+  {#if authRequired}
+    <p class="state auth-required">
+      Sign in to see your Word Bank.
+      <button class="signin" onclick={signIn} disabled={signingIn}>
+        {signingIn ? 'Signing in…' : 'Sign in with Google'}
+      </button>
+    </p>
+  {:else if syncError}
     <p class="state error">Sync error: {syncError} (showing cached data)</p>
   {/if}
 
@@ -388,6 +416,24 @@
 
   .state { color: #94a3b8; padding: 18px 0; }
   .state.error { color: #fca5a5; }
+  .state.auth-required {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .signin {
+    background: #3b82f6;
+    color: white;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .signin:hover { background: #2563eb; }
+  .signin:disabled { opacity: 0.6; cursor: default; }
 
   .grid {
     display: grid;

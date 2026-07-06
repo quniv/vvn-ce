@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import get_db
 from app.models.word import Word
-from app.routes.auth_deps import current_user_email
+from app.models.word_bank_entry import WordBankEntry
+from app.routes.auth_deps import current_user_email, require_user_email
 from app.schemas.word import (
     ExplainRequest,
     ExplainResponse,
@@ -40,6 +41,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 EmailOptDep = Annotated[str | None, Depends(current_user_email)]
+EmailDep = Annotated[str, Depends(require_user_email)]
 
 
 def _today_range() -> tuple[datetime, datetime]:
@@ -71,6 +73,40 @@ def _word_to_word_read(word: Word) -> WordRead:
         last_queried_at=word.last_queried_at,
         created_at=word.created_at,
     )
+
+
+def _word_to_word_read_personal(word: Word, entry: WordBankEntry) -> WordRead:
+    """Like `_word_to_word_read`, but query_count/last_queried_at reflect the
+    signed-in user's own lookups (`entry`), not the shared word row's global count.
+    """
+    read = _word_to_word_read(word)
+    return read.model_copy(
+        update={
+            "query_count": entry.query_count,
+            "last_queried_at": entry.last_queried_at,
+        }
+    )
+
+
+async def _upsert_word_bank_entry(
+    db: AsyncSession, word_id: UUID, user_email: str
+) -> None:
+    """Record that `user_email` looked up `word_id` — bumps their personal
+    query_count/last_queried_at if the entry already exists.
+    """
+    insert_stmt = pg_insert(WordBankEntry).values(
+        word_id=word_id,
+        user_email=user_email,
+    )
+    upsert_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[WordBankEntry.word_id, WordBankEntry.user_email],
+        set_={
+            "query_count": WordBankEntry.query_count + 1,
+            "last_queried_at": func.now(),
+        },
+    )
+    await db.execute(upsert_stmt)
+    await db.commit()
 
 
 async def _find_word_in_db(db: AsyncSession, text: str) -> Word | None:
@@ -234,6 +270,8 @@ async def _explain_word(
                     source_sentence=None,
                     model=model,
                 )
+                if current_email:
+                    await _upsert_word_bank_entry(db, row.id, current_email)
                 return _explain_response_from_row(
                     row,
                     cached=True,
@@ -264,6 +302,8 @@ async def _explain_word(
             word_resp.model_dump(mode="json"),
             ttl_seconds=settings.cache_ttl_seconds,
         )
+        if current_email:
+            await _upsert_word_bank_entry(db, row.id, current_email)
         return _explain_response_from_row(
             row,
             cached=False,
@@ -298,6 +338,8 @@ async def _explain_word(
             source_sentence=None,
             model=model,
         )
+        if current_email:
+            await _upsert_word_bank_entry(db, row.id, current_email)
         # Return vdict response but with saved ID
         vdict_response.saved = True
         vdict_response.saved_id = row.id
@@ -332,6 +374,8 @@ async def _explain_word(
             source_sentence=None,
             model=model,
         )
+        if current_email:
+            await _upsert_word_bank_entry(db, row.id, current_email)
         # Return vdict response but with saved ID
         vdict_response.saved = True
         vdict_response.saved_id = row.id
@@ -364,6 +408,8 @@ async def _explain_word(
             source_sentence=None,
             model=model,
         )
+        if current_email:
+            await _upsert_word_bank_entry(db, row.id, current_email)
         return _explain_response_from_row(
             row,
             cached=False,
@@ -402,43 +448,52 @@ async def save_keywords(
             source_sentence=req.source_sentence,
             model=model,
         )
+        if current_email:
+            await _upsert_word_bank_entry(db, row.id, current_email)
         saved.append(_word_to_word_read(row))
     return saved
 
 
 @router.get("/words/today", response_model=list[WordRead])
-async def words_today(db: DbDep, current_email: EmailOptDep) -> list[WordRead]:
+async def words_today(db: DbDep, current_email: EmailDep) -> list[WordRead]:
     start, end = _today_range()
     return await _list_words(
         db,
         current_email,
-        extra_filters=[Word.last_queried_at >= start, Word.last_queried_at <= end],
+        extra_filters=[
+            WordBankEntry.last_queried_at >= start,
+            WordBankEntry.last_queried_at <= end,
+        ],
     )
 
 
 @router.get("/words", response_model=list[WordRead])
 async def words_all(
-    db: DbDep, current_email: EmailOptDep, limit: int = 1000
+    db: DbDep, current_email: EmailDep, limit: int = 1000
 ) -> list[WordRead]:
     return await _list_words(db, current_email, limit=limit)
 
 
 async def _list_words(
     db: AsyncSession,
-    current_email: str | None,
+    current_email: str,
     *,
     extra_filters: list | None = None,
     limit: int = 1000,
 ) -> list[WordRead]:
-    stmt = select(Word)
+    """Personal Word Bank listing — only words *this* user has looked up,
+    ordered/counted by their own WordBankEntry, not the shared word's globals.
+    """
+    stmt = (
+        select(Word, WordBankEntry)
+        .join(WordBankEntry, WordBankEntry.word_id == Word.id)
+        .where(WordBankEntry.user_email == current_email)
+    )
     for f in extra_filters or []:
         stmt = stmt.where(f)
-    stmt = stmt.order_by(
-        Word.last_queried_at.desc(),
-    ).limit(limit)
+    stmt = stmt.order_by(WordBankEntry.last_queried_at.desc()).limit(limit)
 
     result = await db.execute(stmt)
-    out: list[WordRead] = []
-    for word in result.scalars().all():
-        out.append(_word_to_word_read(word))
-    return out
+    return [
+        _word_to_word_read_personal(word, entry) for word, entry in result.all()
+    ]
