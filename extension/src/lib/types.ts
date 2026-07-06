@@ -61,7 +61,9 @@ export type WordRead = {
   created_at: string
 }
 
-export type WordBankResponse = { ok: true; data: WordRead[]; syncedAt: string } | { ok: false; error: string }
+export type WordBankResponse =
+  | { ok: true; data: WordRead[]; syncedAt: string }
+  | { ok: false; error: string; authRequired?: boolean }
 
 export type Message =
   | { type: 'EXPLAIN'; payload: { text: string; source_url?: string } }
@@ -71,9 +73,12 @@ export type Message =
     }
   | { type: 'SYNC_WORDBANK' }
   | { type: 'OPEN_GAME' }
+  | { type: 'SIGN_IN' }
+  | { type: 'SIGN_OUT' }
 
 export type ExplainResult = { ok: true; data: ExplainResponse } | { ok: false; error: string }
 export type SaveResult = { ok: true } | { ok: false; error: string }
+export type AuthResult = { ok: true } | { ok: false; error: string }
 
 export interface PracticeItem {
   id: string
@@ -103,6 +108,8 @@ export interface WordBankOptions {
 export const DEFAULT_BACKEND_URL = 'https://vvn-ce-api.qtlab.dev'
 export const WORDBANK_STORAGE_KEY = 'wordBank'
 export const WORDBANK_SYNCED_AT_KEY = 'wordBankSyncedAt'
+export const WORDBANK_SYNC_ERROR_KEY = 'wordBankSyncError'
+export const AUTH_SIGNED_IN_KEY = 'authSignedIn'
 export const POPUP_THEME_KEY = 'popupTheme'
 export const PRACTICE_LIST_KEY = 'practiceList'
 export const WORDBANK_OPTIONS_KEY = 'wordBankOptions'

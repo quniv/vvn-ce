@@ -28,7 +28,7 @@
     }
   ],
   "options_page": "options.html",
-  "permissions": ["storage", "activeTab", "identity"],
+  "permissions": ["storage", "activeTab", "identity", "alarms"],
   "host_permissions": [
     "https://vvn-ce-api.qtlab.dev/*",
     "http://localhost:8000/*",

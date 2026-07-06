@@ -1,13 +1,19 @@
 import {
+  AUTH_SIGNED_IN_KEY,
   DEFAULT_BACKEND_URL,
   WORDBANK_STORAGE_KEY,
   WORDBANK_SYNCED_AT_KEY,
+  WORDBANK_SYNC_ERROR_KEY,
+  type AuthResult,
   type ExplainResult,
   type Message,
   type SaveResult,
   type WordBankResponse,
   type WordRead,
 } from '../lib/types'
+
+const WORDBANK_SYNC_ALARM = 'syncWordBank'
+const WORDBANK_SYNC_PERIOD_MINUTES = 5
 
 async function getBackendUrl(): Promise<string> {
   const { backendUrl } = await chrome.storage.local.get('backendUrl')
@@ -16,7 +22,8 @@ async function getBackendUrl(): Promise<string> {
 
 /**
  * Wraps chrome.identity.getAuthToken. Returns null instead of throwing —
- * callers decide whether absence of a token is fatal (VOTE) or fine (listings).
+ * callers decide whether absence of a token is fatal (Word Bank listing, which
+ * requires sign-in) or fine (EXPLAIN/SAVE, which work anonymously too).
  */
 function getAccessToken(interactive: boolean): Promise<string | null> {
   return new Promise((resolve) => {
@@ -45,23 +52,57 @@ async function syncWordBank(): Promise<WordBankResponse> {
   try {
     const res = await fetch(`${backendUrl}/api/words?limit=1000`, { headers: auth })
     if (!res.ok) {
+      const authRequired = res.status === 401
       const text = await res.text()
-      return { ok: false, error: `Backend ${res.status}: ${text.slice(0, 200)}` }
+      const error = authRequired
+        ? 'Sign in to see your Word Bank'
+        : `Backend ${res.status}: ${text.slice(0, 200)}`
+      await chrome.storage.local.set({ [WORDBANK_SYNC_ERROR_KEY]: error })
+      return { ok: false, error, authRequired }
     }
     const data = (await res.json()) as WordRead[]
     const syncedAt = new Date().toISOString()
     await chrome.storage.local.set({
       [WORDBANK_STORAGE_KEY]: data,
       [WORDBANK_SYNCED_AT_KEY]: syncedAt,
+      [WORDBANK_SYNC_ERROR_KEY]: null,
     })
     return { ok: true, data, syncedAt }
   } catch (e) {
-    return { ok: false, error: `Network error: ${e instanceof Error ? e.message : String(e)}` }
+    const error = `Network error: ${e instanceof Error ? e.message : String(e)}`
+    await chrome.storage.local.set({ [WORDBANK_SYNC_ERROR_KEY]: error })
+    return { ok: false, error }
   }
 }
 
 function triggerSync(): void {
   syncWordBank().catch((e) => console.warn('[vvn-ce] background sync failed', e))
+}
+
+async function signIn(): Promise<AuthResult> {
+  const token = await getAccessToken(true)
+  if (!token) {
+    return { ok: false, error: 'Google sign-in was cancelled or failed' }
+  }
+  await chrome.storage.local.set({ [AUTH_SIGNED_IN_KEY]: true })
+  triggerSync()
+  return { ok: true }
+}
+
+async function signOut(): Promise<AuthResult> {
+  const token = await getAccessToken(false)
+  if (token) {
+    await new Promise<void>((resolve) => chrome.identity.removeCachedAuthToken({ token }, resolve))
+  }
+  // Clear the personal Word Bank mirror too — it belongs to the account that just signed out,
+  // not whoever uses this browser profile next.
+  await chrome.storage.local.set({
+    [AUTH_SIGNED_IN_KEY]: false,
+    [WORDBANK_STORAGE_KEY]: [],
+    [WORDBANK_SYNCED_AT_KEY]: null,
+    [WORDBANK_SYNC_ERROR_KEY]: null,
+  })
+  return { ok: true }
 }
 
 async function handleExplain(payload: { text: string; source_url?: string }): Promise<ExplainResult> {
@@ -126,9 +167,28 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
     chrome.tabs.create({ url: chrome.runtime.getURL('game.html') }).then(() => sendResponse({ ok: true }))
     return true
   }
+  if (msg.type === 'SIGN_IN') {
+    signIn().then(sendResponse)
+    return true
+  }
+  if (msg.type === 'SIGN_OUT') {
+    signOut().then(sendResponse)
+    return true
+  }
   return false
 })
 
 chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({ url: chrome.runtime.getURL('game.html') })
+})
+
+// Backstop reconciliation: EXPLAIN/SAVE_KEYWORDS trigger an immediate sync, but that alone
+// misses drift from other devices/tabs or a silently-failed triggerSync(). MV3 service workers
+// are ephemeral, so a periodic backstop needs chrome.alarms rather than setInterval.
+chrome.alarms.create(WORDBANK_SYNC_ALARM, { periodInMinutes: WORDBANK_SYNC_PERIOD_MINUTES })
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === WORDBANK_SYNC_ALARM) {
+    triggerSync()
+  }
 })

@@ -1,15 +1,21 @@
 <script lang="ts">
-  import { DEFAULT_BACKEND_URL } from '../lib/types'
+  import { DEFAULT_BACKEND_URL, AUTH_SIGNED_IN_KEY, type Message, type AuthResult } from '../lib/types'
 
   let backendUrl = $state(DEFAULT_BACKEND_URL)
   let status = $state<'idle' | 'saved'>('idle')
   let loaded = $state(false)
 
+  let signedIn = $state(false)
+  let authBusy = $state(false)
+  let authError = $state<string | null>(null)
+
   void loadSettings()
 
   async function loadSettings() {
-    const { backendUrl: stored } = await chrome.storage.local.get('backendUrl')
+    const { backendUrl: stored, [AUTH_SIGNED_IN_KEY]: storedSignedIn } =
+      await chrome.storage.local.get(['backendUrl', AUTH_SIGNED_IN_KEY])
     if (stored) backendUrl = stored as string
+    signedIn = storedSignedIn === true
     loaded = true
   }
 
@@ -26,6 +32,38 @@
       else alert(`Backend returned ${res.status}`)
     } catch (e) {
       alert('Cannot reach backend: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
+  async function signIn() {
+    authBusy = true
+    authError = null
+    try {
+      const msg: Message = { type: 'SIGN_IN' }
+      const res = (await chrome.runtime.sendMessage(msg)) as AuthResult
+      if (res.ok) {
+        signedIn = true
+      } else {
+        authError = res.error
+      }
+    } finally {
+      authBusy = false
+    }
+  }
+
+  async function signOut() {
+    authBusy = true
+    authError = null
+    try {
+      const msg: Message = { type: 'SIGN_OUT' }
+      const res = (await chrome.runtime.sendMessage(msg)) as AuthResult
+      if (res.ok) {
+        signedIn = false
+      } else {
+        authError = res.error
+      }
+    } finally {
+      authBusy = false
     }
   }
 </script>
@@ -51,6 +89,28 @@
       edit <code>backend/.env</code> (variable <code>OPENROUTER_MODEL</code>) and recreate the api
       container.
     </p>
+
+    <div class="section">
+      <h2>Account</h2>
+      {#if signedIn}
+        <p class="hint">Signed in — your Word Bank syncs to this Google account.</p>
+        <div class="actions">
+          <button onclick={signOut} disabled={authBusy}>
+            {authBusy ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
+      {:else}
+        <p class="hint">Not signed in — sign in to sync your personal Word Bank across devices.</p>
+        <div class="actions">
+          <button onclick={signIn} class="primary" disabled={authBusy}>
+            {authBusy ? 'Signing in…' : 'Sign in with Google'}
+          </button>
+        </div>
+      {/if}
+      {#if authError}
+        <p class="error">{authError}</p>
+      {/if}
+    </div>
   {:else}
     <p>Loading…</p>
   {/if}
@@ -129,6 +189,25 @@
     color: #64748b;
     font-size: 12px;
     line-height: 1.6;
+  }
+  .section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #1e293b;
+  }
+  .section h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: #f1f5f9;
+  }
+  .section .hint {
+    margin-top: 0;
+    margin-bottom: 12px;
+  }
+  .error {
+    margin-top: 10px;
+    color: #fca5a5;
+    font-size: 13px;
   }
   code {
     background: #0f1729;
