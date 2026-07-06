@@ -103,6 +103,7 @@ export interface WordBankOptions {
 export const DEFAULT_BACKEND_URL = 'https://vvn-ce-api.qtlab.dev'
 export const WORDBANK_STORAGE_KEY = 'wordBank'
 export const WORDBANK_SYNCED_AT_KEY = 'wordBankSyncedAt'
+export const WORDBANK_SYNC_ERROR_KEY = 'wordBankSyncError'
 export const POPUP_THEME_KEY = 'popupTheme'
 export const PRACTICE_LIST_KEY = 'practiceList'
 export const WORDBANK_OPTIONS_KEY = 'wordBankOptions'

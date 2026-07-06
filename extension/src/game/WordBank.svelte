@@ -2,6 +2,7 @@
   import {
     WORDBANK_STORAGE_KEY,
     WORDBANK_SYNCED_AT_KEY,
+    WORDBANK_SYNC_ERROR_KEY,
     WORDBANK_OPTIONS_KEY,
     type Message,
     type WordBankResponse,
@@ -84,6 +85,45 @@
   })
 
   void init()
+
+  $effect(() => {
+    function onStorageChanged(
+      changes: { [key: string]: chrome.storage.StorageChange },
+      areaName: string,
+    ) {
+      if (areaName !== 'local') return
+
+      let touched = false
+
+      if (WORDBANK_STORAGE_KEY in changes) {
+        const next = changes[WORDBANK_STORAGE_KEY].newValue
+        if (Array.isArray(next)) {
+          words = next as WordRead[]
+          touched = true
+        }
+      }
+
+      if (WORDBANK_SYNCED_AT_KEY in changes) {
+        const next = changes[WORDBANK_SYNCED_AT_KEY].newValue
+        if (typeof next === 'string') {
+          syncedAt = next
+          touched = true
+        }
+      }
+
+      if (WORDBANK_SYNC_ERROR_KEY in changes && !syncing) {
+        syncError = (changes[WORDBANK_SYNC_ERROR_KEY].newValue as string | null) ?? null
+        touched = true
+      }
+
+      if (touched) {
+        void updateStorageUsage()
+      }
+    }
+
+    chrome.storage.onChanged.addListener(onStorageChanged)
+    return () => chrome.storage.onChanged.removeListener(onStorageChanged)
+  })
 
   async function init() {
     // 1. Instant load from chrome.storage
